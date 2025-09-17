@@ -42,6 +42,8 @@ public class Conta {
     }
 
     // Getters e Setters
+
+
     public int getIdConta() { return idConta; }
     public int getNumeroConta() { return numeroConta; }
     public TipoConta getTipoConta() { return tipoConta; }
@@ -53,4 +55,38 @@ public class Conta {
     public int getNib() { return nib; }
 
     public void setStatus(StatusConta status) { this.status = status; }
+
+    public void setIdConta(int idConta) {
+        this.idConta = idConta;
+    }
+
+    public void setNumeroConta(int numeroConta) {
+        this.numeroConta = numeroConta;
+    }
+
+    public void setTipoConta(TipoConta tipoConta) {
+        this.tipoConta = tipoConta;
+    }
+
+    public void setSaldo(int saldo) {
+        this.saldo = saldo;
+    }
+
+    public void setDataAbertura(LocalDate dataAbertura) {
+        this.dataAbertura = dataAbertura;
+    }
+
+    public void setClienteId(Cliente clienteId) {
+        this.clienteId = clienteId;
+    }
+
+    public void setNiubConta(int niubConta) {
+        this.niubConta = niubConta;
+    }
+
+    public void setNib(int nib) {
+        this.nib = nib;
+    }
+
+    
 }
