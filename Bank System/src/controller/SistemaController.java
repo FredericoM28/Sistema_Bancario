@@ -22,15 +22,15 @@ public class SistemaController {
     public Cliente criarCliente(String nome, int nuit, String endereco, int telefone,
                                 String email, LocalDate idade, String documento, String senha) {
         Cliente c = new Cliente(
-                nome, 
-                proximoIdCliente++, 
-                nuit, 
-                endereco, 
-                telefone, 
-                email, 
-                idade, 
-                Cliente.Status.ATIVO, 
-                documento, 
+                nome,
+                proximoIdCliente++,
+                nuit,
+                endereco,
+                telefone,
+                email,
+                idade,
+                Cliente.Status.ATIVO,
+                documento,
                 senha
         );
         clientes.add(c);
@@ -110,16 +110,62 @@ public class SistemaController {
         return contas.removeIf(c -> c.getIdConta() == idConta);
     }
 
-    public boolean depositar(int idConta, int valor) {
+    public boolean depositar(int idConta, double valor) {
         Conta conta = buscarContaPorId(idConta);
-        if (conta != null) {
+        if (conta != null && valor > 0) {
             conta.depositar(valor);
             return true;
         }
         return false;
     }
 
-    // ===================== GERADORES AUTOMÁTICOS =====================
+    // logica verdadeira do saque/levantamento
+
+    public boolean sacar(int idConta, double valor) {
+        Conta conta = buscarContaPorId(idConta);
+        if (conta != null && valor > 0 && conta.getSaldo() >= valor) {
+            conta.sacar(valor);
+            return true;
+        }
+        return false; // saldo insuficiente ou conta inexistente
+    }
+
+    // este metodo serve para fazer trandferenncia para mesmo banco
+    public boolean transferirMesmaInstituicao(int idOrigem, int idDestino, double valor) {
+        Conta origem = buscarContaPorId(idOrigem);
+        Conta destino = buscarContaPorId(idDestino);
+
+        if (origem == null || destino == null || origem == destino) return false;
+        if (valor <= 0 || origem.getSaldo() < valor) return false;
+
+        origem.sacar(valor);
+        destino.depositar(valor);
+        return true;
+    }
+
+    public boolean transferirOutroBanco(int idOrigem, String nibDestino, double valor) {
+        Conta origem = buscarContaPorId(idOrigem);
+        if (origem == null || valor <= 0 || origem.getSaldo() < valor) return false;
+
+        origem.sacar(valor);
+        // Aqui apenas simula o envio para outro banco usando NIB
+        // Em um sistema real, seria uma chamada a uma API externa
+        return true;
+    }
+
+    public boolean transferirCarteiraMovel(int idOrigem, String numeroTelefone, double valor) {
+        Conta origem = buscarContaPorId(idOrigem);
+        if (origem == null || valor <= 0 || origem.getSaldo() < valor) return false;
+
+        origem.sacar(valor);
+        // Aqui apenas simula o envio para a carteira móvel (M-Pesa, etc.)
+        return true;
+    }
+
+
+    
+
+    // geradores automatios, do numero de conta, NIB e NUIB
 
     private int gerarNumeroConta() {
         return 100000 + random.nextInt(900000);

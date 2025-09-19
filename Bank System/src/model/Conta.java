@@ -2,13 +2,13 @@ package model;
 
 import java.time.LocalDate;
 
-public class Conta { 
+public class Conta {
     private int idConta;
     private int numeroConta;
     private TipoConta tipoConta;
-    private int saldo;
+    private double saldo;
     private LocalDate dataAbertura;
-    private StatusConta status; 
+    private StatusConta status;
     private Cliente clienteId;
     private int niubConta;
     private int nib;
@@ -18,7 +18,7 @@ public class Conta {
     }
 
     public enum StatusConta {
-        ATIVA, INATIVA
+        ATIVA, INATIVA, BLOQUEADA
     }
 
     public Conta(int idConta, int numeroConta, TipoConta tipoConta,
@@ -26,28 +26,41 @@ public class Conta {
         this.idConta = idConta;
         this.numeroConta = numeroConta;
         this.tipoConta = tipoConta;
-        this.saldo = 0;
+        this.saldo = 0.0;
         this.dataAbertura = LocalDate.now();
-        this.status = StatusConta.INATIVA;   // <- começa inativa
+        this.status = StatusConta.INATIVA;   // ela vem inativa aqui
         this.clienteId = clienteId;
         this.niubConta = niubConta;
         this.nib = nib;
     }
 
-    public void depositar(int valor) {
+    // operacoes que a conta faz 
+    // por exemplo a conta so fuca ativa ao ser depositado um valor maior ou igual a 500
+    // a conta ja vem inativa
+
+    public void depositar(double valor) {
         this.saldo += valor;
         if (this.status == StatusConta.INATIVA && this.saldo >= 500) {
-            this.status = StatusConta.ATIVA; // <- ativa ao atingir 500
+            this.status = StatusConta.ATIVA; // ativa ao atingir 500
         }
     }
 
-    // Getters e Setters
 
+    //logica para fazer um sque/levantamento
+    public boolean sacar(double valor) {
+        if (valor > 0 && valor <= this.saldo) {
+            this.saldo -= valor;
+            return true;
+        }
+        return false; // saldo insuficiente
+    }
+
+    // getters e setter da classe "Conta"
 
     public int getIdConta() { return idConta; }
     public int getNumeroConta() { return numeroConta; }
     public TipoConta getTipoConta() { return tipoConta; }
-    public int getSaldo() { return saldo; }
+    public double getSaldo() { return saldo; }
     public LocalDate getDataAbertura() { return dataAbertura; }
     public StatusConta getStatus() { return status; }
     public Cliente getClienteId() { return clienteId; }
@@ -55,38 +68,12 @@ public class Conta {
     public int getNib() { return nib; }
 
     public void setStatus(StatusConta status) { this.status = status; }
-
-    public void setIdConta(int idConta) {
-        this.idConta = idConta;
-    }
-
-    public void setNumeroConta(int numeroConta) {
-        this.numeroConta = numeroConta;
-    }
-
-    public void setTipoConta(TipoConta tipoConta) {
-        this.tipoConta = tipoConta;
-    }
-
-    public void setSaldo(int saldo) {
-        this.saldo = saldo;
-    }
-
-    public void setDataAbertura(LocalDate dataAbertura) {
-        this.dataAbertura = dataAbertura;
-    }
-
-    public void setClienteId(Cliente clienteId) {
-        this.clienteId = clienteId;
-    }
-
-    public void setNiubConta(int niubConta) {
-        this.niubConta = niubConta;
-    }
-
-    public void setNib(int nib) {
-        this.nib = nib;
-    }
-
-    
+    public void setIdConta(int idConta) { this.idConta = idConta; }
+    public void setNumeroConta(int numeroConta) { this.numeroConta = numeroConta; }
+    public void setTipoConta(TipoConta tipoConta) { this.tipoConta = tipoConta; }
+    public void setSaldo(double saldo) { this.saldo = saldo; }
+    public void setDataAbertura(LocalDate dataAbertura) { this.dataAbertura = dataAbertura; }
+    public void setClienteId(Cliente clienteId) { this.clienteId = clienteId; }
+    public void setNiubConta(int niubConta) { this.niubConta = niubConta; }
+    public void setNib(int nib) { this.nib = nib; }
 }

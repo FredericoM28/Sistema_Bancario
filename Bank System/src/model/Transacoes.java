@@ -12,6 +12,8 @@ public class Transacoes {
     private int contaOrigemId;
     private Integer contaDestinoId; 
     private StatusTransacao status;
+    private String descricaoTrancacao;
+    
     
 
     // Enum para tipos de transacoes
