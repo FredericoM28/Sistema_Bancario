@@ -15,6 +15,8 @@ public class Cliente {
     private Status status;
     private String documento;
     private String senhacli;
+
+    
     
     public enum Status {
         ATIVO, INATIVO
@@ -115,6 +117,8 @@ public class Cliente {
     public void setSenhacli(String senhacli) {
         this.senhacli = senhacli;
     }
+private int id; // no Cliente
+public int getId() { return id; }
 
     
     

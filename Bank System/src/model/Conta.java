@@ -56,6 +56,15 @@ public class Conta {
     }
 
     // getters e setter da classe "Conta"
+    
+        private int id;
+    private boolean ativa;
+
+    public int getId() { return id; }
+    public void setId(int id) { this.id = id; }
+
+    public boolean isAtiva() { return ativa; }
+    public void setAtiva(boolean ativa) { this.ativa = ativa; }
 
     public int getIdConta() { return idConta; }
     public int getNumeroConta() { return numeroConta; }
@@ -76,4 +85,8 @@ public class Conta {
     public void setClienteId(Cliente clienteId) { this.clienteId = clienteId; }
     public void setNiubConta(int niubConta) { this.niubConta = niubConta; }
     public void setNib(int nib) { this.nib = nib; }
+
+  
+
+   
 }

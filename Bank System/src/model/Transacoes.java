@@ -1,5 +1,6 @@
 package model;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 public class Transacoes {
@@ -13,8 +14,20 @@ public class Transacoes {
     private Integer contaDestinoId; 
     private StatusTransacao status;
     private String descricaoTrancacao;
+    private Conta conta;
+    private String categoria;
+    private LocalDateTime data;
+    private boolean estornada;
+    private Cliente cliente;
+
+      //private LocalDate h;
     
     
+    //public  int getIdCliente() {
+   //     return conta.getCliente().getId();
+   // }
+
+   
 
     // Enum para tipos de transacoes
     public enum TipoTransacao {
@@ -27,7 +40,7 @@ public class Transacoes {
     }
 
     // Construtor
-    public Transacoes(int idTransacao, TipoTransacao tipoTransacao, double valor,
+    /*public Transacoes(int idTransacao, TipoTransacao tipoTransacao, double valor,
                       LocalDateTime dataTransacao, int contaOrigemId, Integer contaDestinoId,
                       StatusTransacao status) {
         this.idTransacao = idTransacao;
@@ -37,9 +50,72 @@ public class Transacoes {
         this.contaOrigemId = contaOrigemId;
         this.contaDestinoId = contaDestinoId;
         this.status = status;
-    }
+    }*/
+
+    
+    
 
     // Getters e Setters
+
+    
+   
+
+    public boolean isEstornada() {
+        return estornada;
+    }
+
+    public Transacoes(int idTransacao, TipoTransacao tipoTransacao, double valor, LocalDateTime dataTransacao,
+            int contaOrigemId, Integer contaDestinoId, StatusTransacao status, String descricaoTrancacao, Conta conta,
+            String categoria, LocalDateTime data, boolean estornada) {
+        this.idTransacao = idTransacao;
+        this.tipoTransacao = tipoTransacao;
+        this.valor = valor;
+        this.dataTransacao = dataTransacao;
+        this.contaOrigemId = contaOrigemId;
+        this.contaDestinoId = contaDestinoId;
+        this.status = status;
+        this.descricaoTrancacao = descricaoTrancacao;
+        this.conta = conta;
+        this.categoria = categoria;
+        this.data = data;
+        this.estornada = estornada;
+    }
+
+    public void setEstornada(boolean estornada) {
+        this.estornada = estornada;
+    }
+
+    public int getId() {
+        return idTransacao;
+    }
+
+
+    public LocalDateTime getData() {
+        return data;
+    }
+
+    public void setData(LocalDateTime data) {
+        this.data = data;
+    }
+
+
+    public String getCategoria() {
+        return categoria;
+    }
+
+    public void setCategoria(String categoria) {
+        this.categoria = categoria;
+    }
+
+
+    public Conta getConta() {
+        return conta;
+    }
+
+    public void setConta(Conta conta) {
+        this.conta = conta;
+    }
+
     public int getIdTransacao() {
         return idTransacao;
     }
@@ -108,4 +184,17 @@ public class Transacoes {
                 ", status=" + status +
                 '}';
     }
+public int getIdCliente() {
+    if (this.conta != null && this.conta.getClienteId() != null) {
+        return this.conta.getClienteId().getIdCliente(); // usa getIdCliente() do Cliente
+    }
+    return -1;
 }
+
+   
+}
+
+
+
+  
+
