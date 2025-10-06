@@ -1,12 +1,15 @@
 package controller;
 
+import model.Banco;
 import model.Cliente;
 import model.Conta;
 import model.Emprestimo;
 import model.Funcionario;
 //import model.Emprestimo.emprestimos;
 import model.Transacoes;
+import DAO.BancoDAO;
 
+import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -14,6 +17,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+
+
 
 public class SistemaController {
     private double taxaJuros = 0.05; // 5% padrão
@@ -24,7 +29,9 @@ public class SistemaController {
     private List<Transacoes> transacoes = new ArrayList<>();
     private List<Emprestimo> emprestimos = new ArrayList<>();
     private List<Funcionario> funcionarios = new ArrayList<>();
-private int idFuncionario = 1;
+    private int idFuncionario = 1;
+    private Banco banco = new Banco("Nexus Bank", 1000000); // capital inicial de exemplo
+     
 
 
     private int proximoIdCliente = 1;
@@ -41,6 +48,22 @@ private int gerarIdEmprestimo() {
     return proximoIdEmprestimo++;
 }
 
+ private BancoDAO bancoDAO; // declara o DAO
+
+    public SistemaController() {
+        bancoDAO = new BancoDAO(null); // inicializa o DAO
+    }
+
+     public void registrarLucroTransacao(double taxa) {
+        banco.registrarLucroTaxa(taxa);
+
+        try {
+            BancoDAO bancoDAO = new BancoDAO(null);
+            bancoDAO.atualizarBanco(banco);
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
 
 
     // ===================== CLIENTE =====================
@@ -215,15 +238,28 @@ private int gerarIdEmprestimo() {
         return true;
     }
 
-    public boolean transferirOutroBanco(int idOrigem, String nibDestino, double valor) {
-        Conta origem = buscarContaPorId(idOrigem);
-        if (origem == null || valor <= 0 || origem.getSaldo() < valor) return false;
+   public boolean transferirOutroBanco(int idOrigem, String nibDestino, double valor) {
+    Conta origem = buscarContaPorId(idOrigem);
+    if (origem == null || valor <= 0 || origem.getSaldo() < valor) return false;
 
-        origem.sacar(valor);
-        // Aqui apenas simula o envio para outro banco usando NIB
-        // Em um sistema real, seria uma chamada a uma API externa
-        return true;
-    }
+    // ====== DEFINIR TAXA ======
+    double taxa = valor * 0.01; // 1% de taxa sobre o valor da transferência
+
+    // Verifica se há saldo suficiente para valor + taxa
+    if (origem.getSaldo() < (valor + taxa)) return false;
+
+    // Debita valor e taxa da conta
+    origem.sacar(valor);
+    origem.sacar(taxa);
+
+    // Registra lucro da taxa no banco
+    banco.registrarLucroTaxa(taxa);
+   // bancoDAO.atualizarBanco(banco); // persiste o lucro e capital atualizado
+
+    // Simula envio para outro banco (externo)
+    return true;
+}
+
 
     public boolean transferirCarteiraMovel(int idOrigem, String numeroTelefone, double valor) {
         Conta origem = buscarContaPorId(idOrigem);
@@ -304,27 +340,31 @@ private int gerarIdEmprestimo() {
     //    return criarConta/*abrirConta*/(nomeCli, nuitcli, endereco, telefone, email, documento);
         
     //}
-  public Conta abrirContaCliente(String nomeCli, int nuitcli, String endereco, int telefone, String email, String documento, Conta.TipoConta tipoConta) {
-    // Criar um novo cliente com valores padrão para campos obrigatórios que não tens
-    Cliente novoCliente = new Cliente(
-        nomeCli,                       // nome do cliente
-        proximoIdCliente++,             // idCliente gerado automaticamente
-        nuitcli,                        // nuit do cliente
-        endereco,                       // endereço
-        telefone,                       // telefone
-        email,                          // email
-        LocalDate.now(),                // idadeCli (pode ser ajustado depois)
-        Cliente.Status.ATIVO,           // status do cliente
-        documento,                      // documento
-        "1234"                          // senha padrão (pode pedir alteração depois)
-    );
+    public Conta abrirContaCliente(String nomeCli, int nuitcli, String endereco, int telefone, String email, String     documento, Conta.TipoConta tipoConta) {
+        Cliente novoCliente = new Cliente(
+            nomeCli,
+            proximoIdCliente++,
+            nuitcli,
+            endereco,
+            telefone,
+            email,
+            LocalDate.now(),
+            Cliente.Status.ATIVO,
+            documento,
+            "1234"
+        );
 
-    // Adicionar cliente à lista de clientes
-    clientes.add(novoCliente);
+        clientes.add(novoCliente);
 
-    // Criar e retornar a conta usando o id do cliente
-    return criarConta(novoCliente.getIdCliente(), tipoConta);
-}
+        // Cria a conta e armazena numa variável
+        Conta novaConta = criarConta(novoCliente.getIdCliente(), tipoConta);
+
+        // Atualiza banco
+        banco.adicionarConta(novaConta); // agora funciona
+
+        return novaConta;
+    }
+
 
 
     
@@ -363,13 +403,14 @@ private int gerarIdEmprestimo() {
 
     //Transacoes
     // Registrar transação
-   public Transacoes registrarTransacao(int idConta, String categoria, double valor) {
+   // Registrar transação com taxa do banco
+public Transacoes registrarTransacao(int idConta, String categoria, double valor) {
     Conta conta = buscarContaPorId(idConta);
     if (conta == null) return null;
 
     int idT = gerarIdTransacao();
 
-    // tenta inferir tipo por categoria (fallback para DEPOSITO)
+    // Determinar tipo de transação
     Transacoes.TipoTransacao tipo = Transacoes.TipoTransacao.DEPOSITO;
     if (categoria != null) {
         String c = categoria.toLowerCase();
@@ -378,10 +419,19 @@ private int gerarIdEmprestimo() {
         else tipo = Transacoes.TipoTransacao.DEPOSITO;
     }
 
-    Transacoes.StatusTransacao status = Transacoes.StatusTransacao.CONCLUIDA; // ajusta se precisares PENDENTE
+    Transacoes.StatusTransacao status = Transacoes.StatusTransacao.CONCLUIDA;
 
     LocalDateTime now = LocalDateTime.now();
 
+    // ======== COBRAR TAXA ========
+    double taxa = valor * 0.01; // exemplo: 1% de taxa sobre valor da transação
+    if (tipo != Transacoes.TipoTransacao.DEPOSITO && conta.getSaldo() >= taxa) {
+        conta.sacar(taxa);                 // desconta da conta
+        banco.registrarLucroTaxa(taxa);    // atualiza lucro do banco
+       // bancoDAO.atualizarBanco(banco);    // persiste no banco de dados
+    }
+
+    // Criar objeto Transação
     Transacoes t = new Transacoes(
             idT,
             tipo,
@@ -400,6 +450,7 @@ private int gerarIdEmprestimo() {
     transacoes.add(t);
     return t;
 }
+
 
 
     // Definir categoria de transação
@@ -513,6 +564,13 @@ private int gerarIdEmprestimo() {
     for (Emprestimo e : emprestimos) {
         if (e.getIdEmprestimo() == idSolicitacao) {
             e.setStatus(Emprestimo.emprestimos.CONFIRMADA);
+            // Registrar lucro automático do banco
+            // Calcula os juros com base no valor solicitado e na taxa de juros do empréstimo
+            double juros = e.getValorSolicitado() * e.getTaxaJuro(); 
+
+            // Registra o lucro no banco
+            banco.registrarLucro(juros);
+
             return true;
         }
     }
@@ -578,7 +636,38 @@ private int gerarIdEmprestimo() {
     }
 
 
-   
+   public boolean sacarComTaxa(int idConta, double valor) {
+    Conta conta = buscarContaPorId(idConta);
+    if (conta != null && valor > 0 && conta.getSaldo() >= valor) {
+        double taxa = valor * 0.005; // 0.5% de taxa
+        conta.sacar(valor + taxa);    // saca valor + taxa
+        banco.registrarLucroTaxa(taxa);
+
+        // registra a transação
+        registrarTransacao(idConta, "Saque", valor);
+        return true;
+    }
+    return false;
+}
+
+    public boolean transferirComTaxa(int idOrigem, int idDestino, double valor) {
+        Conta origem = buscarContaPorId(idOrigem);
+        Conta destino = buscarContaPorId(idDestino);
+        if (origem != null && destino != null && valor > 0 && origem.getSaldo() >= valor) {
+            double taxa = valor * 0.002; // 0.2% de taxa
+            origem.sacar(valor + taxa);
+            destino.depositar(valor);
+            banco.registrarLucroTaxa(taxa);
+
+            registrarTransacao(idOrigem, "Transferência", valor);
+            return true;
+        }
+        return false;
+    }
+
+    
+
+
 
 
     // geradores automatios, do numero de conta, NIB e NUIB

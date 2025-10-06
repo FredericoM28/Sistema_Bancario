@@ -13,6 +13,9 @@ public class Funcionario {
     private String nivelAcesso;
     private LocalDate dataAdmissao;
     private Boolean statusFunc; //(ativo/inativo
+    private String senha;
+    private Double salario;
+    private String contactoFunc;
 
 
     public Funcionario(int idFuncionario, String nomeCompletoFunc, String senhaFunc, String cargo,
@@ -31,6 +34,10 @@ public class Funcionario {
         this.cargo = cargo;
     }
 
+
+    public Funcionario(int int1, String string, String string2, double double1, String string3) {
+        
+    }
 
     public int getIdFuncionario() {
         return idFuncionario;
@@ -99,6 +106,30 @@ public class Funcionario {
 
     public void setStatusFunc(Boolean statusFunc) {
         this.statusFunc = statusFunc;
+    }
+
+    public String getSenha() {
+        return senha;
+    }
+
+    public void setSenha(String senha) {
+        this.senha = senha;
+    }
+
+    public Double getSalario() {
+        return salario;
+    }
+
+    public void setSalario(Double salario) {
+        this.salario = salario;
+    }
+
+    public String getContactoFunc() {
+        return contactoFunc;
+    }
+
+    public void setContactoFunc(String contactoFunc) {
+        this.contactoFunc = contactoFunc;
     }
 
     

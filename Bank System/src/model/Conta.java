@@ -12,6 +12,8 @@ public class Conta {
     private Cliente clienteId;
     private int niubConta;
     private int nib;
+    private Cliente cliente;  // atributo da conta
+
 
     public enum TipoConta {
         POUPANCA, CORRENTE, DEBITO
@@ -21,7 +23,7 @@ public class Conta {
         ATIVA, INATIVA, BLOQUEADA
     }
 
-    public Conta(int idConta, int numeroConta, TipoConta tipoConta,
+  /*   public Conta(int idConta, int numeroConta, TipoConta tipoConta,
                  Cliente clienteId, int niubConta, int nib) {
         this.idConta = idConta;
         this.numeroConta = numeroConta;
@@ -32,7 +34,21 @@ public class Conta {
         this.clienteId = clienteId;
         this.niubConta = niubConta;
         this.nib = nib;
-    }
+    } */
+  public Conta(int idConta, int numeroConta, TipoConta tipoConta,
+             Cliente cliente, int niubConta, int nib) {
+    this.idConta = idConta;
+    this.numeroConta = numeroConta;
+    this.tipoConta = tipoConta;
+    this.saldo = 0.0;
+    this.dataAbertura = LocalDate.now();
+    this.status = StatusConta.INATIVA;
+    this.cliente = cliente;   // só um atributo
+    this.niubConta = niubConta;
+    this.nib = nib;
+}
+
+
 
     // operacoes que a conta faz 
     // por exemplo a conta so fuca ativa ao ser depositado um valor maior ou igual a 500
@@ -59,6 +75,12 @@ public class Conta {
     
         private int id;
     private boolean ativa;
+
+    public int getIdCliente() {
+      return cliente.getIdCliente();
+    }
+    
+
 
     public int getId() { return id; }
     public void setId(int id) { this.id = id; }

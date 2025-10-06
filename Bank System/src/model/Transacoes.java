@@ -191,6 +191,14 @@ public int getIdCliente() {
     return -1;
 }
 
+public String getDescricaoTrancacao() {
+    return descricaoTrancacao;
+}
+
+public void setDescricaoTrancacao(String descricaoTrancacao) {
+    this.descricaoTrancacao = descricaoTrancacao;
+}
+
    
 }
 
