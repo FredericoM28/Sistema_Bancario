@@ -2,6 +2,10 @@ package controller;
 
 public class App {
     public static void main(String[] args) throws Exception {
-        System.out.println("Hello, World!");
+
+
+        SistemaController execucao = new SistemaController();
+        System.out.println("Sistema bancario rodando perfeitamente");
+
     }
 }
