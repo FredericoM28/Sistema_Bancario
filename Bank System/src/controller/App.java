@@ -5,7 +5,7 @@ public class App {
 
 
         SistemaController execucao = new SistemaController();
-        System.out.println("Sistema bancario rodando perfeitamente");
+        System.out.println("Sistema bancario rodando perfeitamente" + execucao);
 
     }
 }

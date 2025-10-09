@@ -5,9 +5,9 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 
 public class ConnectionFactory {
-    private static final String URL = "jdbc:mysql://localhost:3306/bancoDATABSE"; // teu schema
-    private static final String USER = "root"; // teu user
-    private static final String PASSWORD = "";  // tua senha
+    private static final String URL = "jdbc:mysql://localhost:3306/bancoDATABSE"; // nome da DB
+    private static final String USER = "root"; // nome do user
+    private static final String PASSWORD = "";  // senha
 
     public static Connection getConnection() {
         try {
