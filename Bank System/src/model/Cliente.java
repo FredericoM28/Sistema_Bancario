@@ -17,6 +17,10 @@ public class Cliente {
     private String senhacli;
 
     
+    public String getDocumentoCli() {
+    return this.documento;  // ou o nome do teu atributo correspondente
+}
+
     
     public enum Status {
         ATIVO, INATIVO
