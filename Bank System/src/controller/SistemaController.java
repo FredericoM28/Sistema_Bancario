@@ -340,6 +340,67 @@ private int gerarIdEmprestimo() {
     //    return criarConta/*abrirConta*/(nomeCli, nuitcli, endereco, telefone, email, documento);
         
     //}
+
+    /**
+ * Pesquisa clientes por termo, podendo filtrar por ID, nome ou número da conta.
+ * tipo: "ID", "Nome" ou "Nº Conta"
+ */
+    public List<Cliente> pesquisarClientes(String termo, String tipo) {
+        if (termo == null || termo.trim().isEmpty()) return listarClientes();
+        termo = termo.trim();
+        List<Cliente> encontrados = new ArrayList<>();
+
+        if ("ID".equalsIgnoreCase(tipo)) {
+            try {
+                int id = Integer.parseInt(termo);
+                Cliente c = buscarClientePorId(id);
+                if (c != null) encontrados.add(c);
+                return encontrados;
+            } catch (NumberFormatException e) {
+                return encontrados;
+            }
+        }
+
+        if ("Nome".equalsIgnoreCase(tipo)) {
+            for (Cliente c : clientes) {
+                // usa o getter de nome que tiveres na classe Cliente
+                if (c.getNomeCli() != null && c.getNomeCli().toLowerCase().contains(termo.toLowerCase())) {
+                    encontrados.add(c);
+                }
+            }
+            return encontrados;
+        }
+
+        if ("Nº Conta".equalsIgnoreCase(tipo) || "NUM_CONTA".equalsIgnoreCase(tipo)) {
+            try {
+                int numero = Integer.parseInt(termo);
+                for (Conta ct : contas) {
+                    if (ct.getNumeroConta() == numero) {
+                        // ct.getClienteId() pode retornar Cliente ou int dependendo da tua implementação
+                        Object clienteRef = ct.getClienteId();
+                        int cid = -1;
+                        if (clienteRef instanceof Cliente) cid = ((Cliente) clienteRef).getIdCliente();
+                        else if (clienteRef instanceof Integer) cid = (Integer) clienteRef;
+
+                        if (cid != -1) {
+                            Cliente c = buscarClientePorId(cid);
+                            if (c != null) encontrados.add(c);
+                        }
+                    }
+                }
+            } catch (NumberFormatException e) {
+                // termo não numérico -> nada
+            }
+            return encontrados;
+        }
+
+        // fallback: pesquisa por nome
+        for (Cliente c : clientes) {
+            if (c.getNomeCli() != null && c.getNomeCli().toLowerCase().contains(termo.toLowerCase())) encontrados.add(c);
+        }
+        return encontrados;
+    }
+
     public Conta abrirContaCliente(String nomeCli, int nuitcli, String endereco, int telefone, String email, String     documento, Conta.TipoConta tipoConta) {
         Cliente novoCliente = new Cliente(
             nomeCli,
@@ -364,9 +425,6 @@ private int gerarIdEmprestimo() {
 
         return novaConta;
     }
-
-
-
     
 
     // Atualizar dados do cliente
