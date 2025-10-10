@@ -723,6 +723,49 @@ public Transacoes registrarTransacao(int idConta, String categoria, double valor
         return false;
     }
 
+
+    // ================= MÉTODOS PARA RELATÓRIOS E CÁLCULOS DO CAIXA =================
+
+    // Retorna o saldo total de todas as contas
+    public double calcularSaldoTotal() {
+        double total = 0.0;
+        for (Conta conta : contas) {
+            total += conta.getSaldo();
+        }
+        return total;
+    }
+
+    // Retorna o total de depósitos feitos (baseado em histórico simples)
+    public double getTotalDepositos() {
+        double totalDepositos = 0.0;
+        for (Conta conta : contas) {
+            totalDepositos += conta.getTotalDepositos(); // Este método deve existir em Conta
+        }
+        return totalDepositos;
+    }
+
+    // Retorna o total de saques realizados
+    public double getTotalSaques() {
+        double totalSaques = 0.0;
+        for (Conta conta : contas) {
+            totalSaques += conta.getTotalSaques(); // Este método deve existir em Conta
+        }
+        return totalSaques;
+    }
+
+    // Gera um pequeno relatório textual com informações resumidas do caixa
+    public String gerarRelatorioCaixa() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("=== RELATÓRIO DO CAIXA ===\n\n");
+        sb.append("Total de Contas: ").append(contas.size()).append("\n");
+        sb.append("Saldo Total no Banco: ").append(String.format("%.2f", calcularSaldoTotal())).append(" MZN\n");
+        sb.append("Total de Depósitos: ").append(String.format("%.2f", getTotalDepositos())).append(" MZN\n");
+        sb.append("Total de Saques: ").append(String.format("%.2f", getTotalSaques())).append(" MZN\n");
+        sb.append("\n-----------------------------\n");
+        sb.append("Data: ").append(java.time.LocalDate.now()).append("\n");
+        return sb.toString();
+    }
+
     
 
 

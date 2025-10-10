@@ -13,6 +13,8 @@ public class Conta {
     private int niubConta;
     private int nib;
     private Cliente cliente;  // atributo da conta
+    private double totalDepositos;
+    private double totalSaques;
 
 
     public enum TipoConta {
@@ -48,13 +50,20 @@ public class Conta {
     this.nib = nib;
 }
 
+public double getTotalDepositos() {
+    return totalDepositos;
+}
+
+public double getTotalSaques() {
+    return totalSaques;
+}
 
 
     // operacoes que a conta faz 
     // por exemplo a conta so fuca ativa ao ser depositado um valor maior ou igual a 500
     // a conta ja vem inativa
 
-    public void depositar(double valor) {
+   /*  public void depositar(double valor) {
         this.saldo += valor;
         if (this.status == StatusConta.INATIVA && this.saldo >= 500) {
             this.status = StatusConta.ATIVA; // ativa ao atingir 500
@@ -69,7 +78,30 @@ public class Conta {
             return true;
         }
         return false; // saldo insuficiente
-    }
+    }*/
+
+        // Depósito
+        public void depositar(double valor) {
+            if (valor > 0) {
+                this.saldo += valor;
+                this.totalDepositos += valor; // atualiza o total de depósitos
+
+                if (this.status == StatusConta.INATIVA && this.saldo >= 500) {
+                    this.status = StatusConta.ATIVA; // ativa ao atingir 500
+                }
+            }
+        }
+
+        // Saque
+        public boolean sacar(double valor) {
+            if (valor > 0 && valor <= this.saldo) {
+                this.saldo -= valor;
+                this.totalSaques += valor; // atualiza o total de saques
+                return true;
+            }
+            return false; // saldo insuficiente
+        }
+
 
     // getters e setter da classe "Conta"
     
