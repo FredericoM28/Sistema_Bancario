@@ -192,100 +192,134 @@ public class PainelFuncCaixa extends JFrame {
     }
 
     // ===================== DEPÓSITOS =====================
-    private JPanel criarPainelDepositos() {
-        JPanel painel = new JPanel(new BorderLayout(12, 12));
-        painel.setBackground(new Color(235, 242, 248));
-        painel.setBorder(BorderFactory.createEmptyBorder(16, 16, 16, 16));
+   private JPanel criarPainelDepositos() {
+    JPanel painel = new JPanel(new BorderLayout(12, 12));
+    painel.setBackground(new Color(235, 242, 248));
+    painel.setBorder(BorderFactory.createEmptyBorder(16, 16, 16, 16));
 
-        // Top - formulário e ações
-        JPanel topo = new JPanel(new GridBagLayout());
-        topo.setBackground(new Color(235, 242, 248));
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(8, 8, 8, 8);
-        gbc.fill = GridBagConstraints.HORIZONTAL;
+    // ========== TOPO ==========
+    JPanel topo = new JPanel(new GridBagLayout());
+    topo.setBackground(new Color(235, 242, 248));
+    GridBagConstraints gbc = new GridBagConstraints();
+    gbc.insets = new Insets(8, 8, 8, 8);
+    gbc.fill = GridBagConstraints.HORIZONTAL;
 
-        JLabel lblTitulo = new JLabel("💰 Registrar Depósito");
-        lblTitulo.setFont(new Font("Segoe UI", Font.BOLD, 18));
-        lblTitulo.setForeground(new Color(0, 51, 102));
+    JLabel lblTitulo = new JLabel("💰 Registrar Depósito");
+    lblTitulo.setFont(new Font("Segoe UI", Font.BOLD, 18));
+    lblTitulo.setForeground(new Color(0, 51, 102));
 
-        txtIdContaDeposito = new JTextField(12);
-        txtValorDeposito = new JTextField(12);
-        JButton btnDepositar = new JButton("Confirmar Depósito");
-        JButton btnListar = new JButton("Listar Depósitos");
-        JButton btnLimpar = new JButton("Limpar Campos");
+    txtIdContaDeposito = new JTextField(12);
+    txtValorDeposito = new JTextField(12);
+    JTextField txtReferencia = new JTextField(12);
+    JTextField txtEntidade = new JTextField(12);
 
-        estilizarBotaoAcao(btnDepositar);
-        estilizarBotaoSecundario(btnListar);
-        estilizarBotaoSecundario(btnLimpar);
+    JButton btnDepositar = new JButton("Confirmar Depósito");
+    JButton btnListar = new JButton("Listar Depósitos");
+    JButton btnLimpar = new JButton("Limpar Campos");
 
-        gbc.gridx = 0; gbc.gridy = 0; gbc.gridwidth = 2;
-        topo.add(lblTitulo, gbc);
-        gbc.gridwidth = 1;
-        gbc.gridy++;
-        topo.add(new JLabel("ID da Conta:"), gbc);
-        gbc.gridx = 1;
-        topo.add(txtIdContaDeposito, gbc);
-        gbc.gridx = 0; gbc.gridy++;
-        topo.add(new JLabel("Valor (MZN):"), gbc);
-        gbc.gridx = 1;
-        topo.add(txtValorDeposito, gbc);
-        gbc.gridx = 0; gbc.gridy++;
-        topo.add(btnDepositar, gbc);
-        gbc.gridx = 1;
-        topo.add(btnLimpar, gbc);
-        gbc.gridx = 0; gbc.gridy++;
-        topo.add(btnListar, gbc);
+    estilizarBotaoAcao(btnDepositar);
+    estilizarBotaoSecundario(btnListar);
+    estilizarBotaoSecundario(btnLimpar);
 
-        painel.add(topo, BorderLayout.NORTH);
+    gbc.gridx = 0; gbc.gridy = 0; gbc.gridwidth = 2;
+    topo.add(lblTitulo, gbc);
 
-        // Centro - tabela de depósitos
-        String[] col = {"ID Transação", "ID Conta", "Valor", "Data", "Descrição"};
-        modeloDepositos = new DefaultTableModel(col, 0) {
-            public boolean isCellEditable(int r, int c) { return false; }
-        };
-        tabelaDepositos = new JTable(modeloDepositos);
-        tabelaDepositos.setRowHeight(24);
-        tabelaDepositos.getTableHeader().setReorderingAllowed(false);
-        JScrollPane scroll = new JScrollPane(tabelaDepositos);
-        scroll.setPreferredSize(new Dimension(600, 240));
-        painel.add(scroll, BorderLayout.CENTER);
+    gbc.gridwidth = 1; gbc.gridy++;
+    topo.add(new JLabel("ID da Conta:"), gbc);
+    gbc.gridx = 1;
+    topo.add(txtIdContaDeposito, gbc);
 
-        // Rodapé - ações rápidas
-        JPanel rodape = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 8));
-        rodape.setBackground(new Color(235, 242, 248));
+    gbc.gridx = 0; gbc.gridy++;
+    topo.add(new JLabel("Valor (MZN):"), gbc);
+    gbc.gridx = 1;
+    topo.add(txtValorDeposito, gbc);
 
-        JButton btnAtualizar = new JButton("Actualizar Tabela");
-        estilizarBotaoSecundario(btnAtualizar);
-        rodape.add(btnAtualizar);
-        painel.add(rodape, BorderLayout.SOUTH);
+    gbc.gridx = 0; gbc.gridy++;
+    topo.add(new JLabel("Referência:"), gbc);
+    gbc.gridx = 1;
+    topo.add(txtReferencia, gbc);
 
-        // Ações
-        btnDepositar.addActionListener(e -> {
-            try {
-                int idConta = Integer.parseInt(txtIdContaDeposito.getText().trim());
-                double valor = Double.parseDouble(txtValorDeposito.getText().trim());
-                boolean ok = sistema.registrarDeposito(idConta, valor);
-                if (ok) {
-                    JOptionPane.showMessageDialog(this, "Depósito realizado com sucesso!");
-                    atualizarTabelaDepositos();
-                    atualizarDashboard();
-                } else {
-                    JOptionPane.showMessageDialog(this, "Erro: conta não encontrada ou valor inválido.");
-                }
-            } catch (NumberFormatException ex) {
-                JOptionPane.showMessageDialog(this, "Dados inválidos! Verifica o ID da conta e o valor.");
+    gbc.gridx = 0; gbc.gridy++;
+    topo.add(new JLabel("Entidade:"), gbc);
+    gbc.gridx = 1;
+    topo.add(txtEntidade, gbc);
+
+    gbc.gridx = 0; gbc.gridy++;
+    topo.add(btnDepositar, gbc);
+    gbc.gridx = 1;
+    topo.add(btnLimpar, gbc);
+    gbc.gridx = 0; gbc.gridy++;
+    topo.add(btnListar, gbc);
+
+    painel.add(topo, BorderLayout.NORTH);
+
+    // ========== TABELA ==========
+    String[] col = {"ID Transação", "ID Conta", "Valor", "Data", "Referência", "Entidade", "Descrição"};
+    modeloDepositos = new DefaultTableModel(col, 0) {
+        public boolean isCellEditable(int r, int c) { return false; }
+    };
+    tabelaDepositos = new JTable(modeloDepositos);
+    tabelaDepositos.setRowHeight(24);
+    tabelaDepositos.getTableHeader().setReorderingAllowed(false);
+    JScrollPane scroll = new JScrollPane(tabelaDepositos);
+    scroll.setPreferredSize(new Dimension(700, 240));
+    painel.add(scroll, BorderLayout.CENTER);
+
+    // ========== RODAPÉ ==========
+    JPanel rodape = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 8));
+    rodape.setBackground(new Color(235, 242, 248));
+    JButton btnAtualizar = new JButton("Actualizar Tabela");
+    estilizarBotaoSecundario(btnAtualizar);
+    rodape.add(btnAtualizar);
+    painel.add(rodape, BorderLayout.SOUTH);
+
+    // ========== AÇÕES ==========
+    btnDepositar.addActionListener(e -> {
+        try {
+            int idConta = Integer.parseInt(txtIdContaDeposito.getText().trim());
+            double valor = Double.parseDouble(txtValorDeposito.getText().trim());
+            String referencia = txtReferencia.getText().trim();
+            String entidade = txtEntidade.getText().trim();
+
+            if (valor <= 0) {
+                JOptionPane.showMessageDialog(this, "O valor deve ser maior que zero.");
+                return;
             }
-        });
 
-        btnListar.addActionListener(e -> atualizarTabelaDepositos());
-        btnLimpar.addActionListener(e -> {
-            txtIdContaDeposito.setText("");
-            txtValorDeposito.setText("");
-        });
-        btnAtualizar.addActionListener(e -> atualizarTabelaDepositos());
+            // Chama método atualizado no SistemaController
+            Transacoes transacao = sistema.registrarTransacao(
+                idConta, "Depósito", valor, referencia, entidade
+            );
 
-        return painel;
-    }
+            if (transacao != null) {
+                JOptionPane.showMessageDialog(this, "Depósito realizado com sucesso!");
+                atualizarTabelaDepositos();
+                atualizarDashboard();
+                txtIdContaDeposito.setText("");
+                txtValorDeposito.setText("");
+                txtReferencia.setText("");
+                txtEntidade.setText("");
+            } else {
+                JOptionPane.showMessageDialog(this, "Erro: conta não encontrada ou dados inválidos.");
+            }
+
+        } catch (NumberFormatException ex) {
+            JOptionPane.showMessageDialog(this, "Dados inválidos! Verifica o ID da conta e o valor.");
+        }
+    });
+
+    btnListar.addActionListener(e -> atualizarTabelaDepositos());
+    btnLimpar.addActionListener(e -> {
+        txtIdContaDeposito.setText("");
+        txtValorDeposito.setText("");
+        txtReferencia.setText("");
+        txtEntidade.setText("");
+    });
+    btnAtualizar.addActionListener(e -> atualizarTabelaDepositos());
+
+    return painel;
+}
+
 
     private void atualizarTabelaDepositos() {
         modeloDepositos.setRowCount(0);

@@ -314,6 +314,101 @@ private int gerarIdEmprestimo() {
         return sacar(idConta, /*numeroConta,*/ valor);
     }
 
+
+    // ====== Depósito Flexível ======
+public boolean registrarDepositoFlexivel(Integer idConta, Integer numeroConta, Double valor, String referencia, String entidade) {
+    if (valor == null || valor <= 0) return false;
+
+    Conta conta = null;
+
+    // tentar encontrar a conta pelo id ou pelo número
+    if (idConta != null) {
+        conta = buscarContaPorId(idConta);
+    }
+    if (conta == null && numeroConta != null) {
+        conta = buscarContaPorNumero(numeroConta);
+    }
+
+    if (conta != null) {
+        conta.depositar(valor);
+        registrarTransacao(conta.getIdConta(), "Depósito", valor, referencia, entidade);
+        return true;
+    }
+    return false;
+}
+
+// ====== Levantamento Flexível ======
+public boolean registrarLevantamentoFlexivel(Integer idConta, Integer numeroConta, Double valor, String referencia, String entidade) {
+    if (valor == null || valor <= 0) return false;
+
+    Conta conta = null;
+
+    if (idConta != null) {
+        conta = buscarContaPorId(idConta);
+    }
+    if (conta == null && numeroConta != null) {
+        conta = buscarContaPorNumero(numeroConta);
+    }
+
+    if (conta != null && conta.getSaldo() >= valor) {
+        conta.sacar(valor);
+        registrarTransacao(conta.getIdConta(), "Saque", valor, referencia, entidade);
+        return true;
+    }
+    return false;
+}
+
+// Atualizado registrarTransacao para incluir referência e entidade
+public Transacoes registrarTransacao(int idConta, String categoria, double valor, 
+                                     String referencia, String entidade) {
+    Conta conta = buscarContaPorId(idConta);
+    if (conta == null) return null;
+
+    int idT = gerarIdTransacao();
+    LocalDateTime now = LocalDateTime.now();
+
+    Transacoes.TipoTransacao tipo = Transacoes.TipoTransacao.DEPOSITO;
+    if (categoria != null) {
+        String c = categoria.toLowerCase();
+        if (c.contains("saque") || c.contains("levant")) tipo = Transacoes.TipoTransacao.SAQUE;
+        else if (c.contains("transfer")) tipo = Transacoes.TipoTransacao.TRANSFERENCIA;
+    }
+
+    Transacoes.StatusTransacao status = Transacoes.StatusTransacao.CONCLUIDA;
+
+    // Taxa de exemplo
+    double taxa = valor * 0.01;
+    if (tipo != Transacoes.TipoTransacao.DEPOSITO && conta.getSaldo() >= taxa) {
+        conta.sacar(taxa);
+        banco.registrarLucroTaxa(taxa);
+    }
+
+    Transacoes t = new Transacoes(
+        idT,
+        tipo,
+        valor,
+        now,
+        conta.getIdConta(),
+        null,
+        status,
+        categoria,
+        conta,
+        categoria,
+        now,
+        false
+    );
+    
+    // Guarda as informações de referência e entidade se tua classe Transacoes tiver campos
+    t.setReferencia(referencia);
+    t.setEntidade(entidade);
+
+    transacoes.add(t);
+    return t;
+}
+
+
+
+
     // Emitir recibo (aqui só retorna String, mas poderia gerar PDF)
     public String emitirRecibo(int idTransacao) {
         for (Transacoes t : transacoes) {
@@ -791,6 +886,20 @@ public Transacoes registrarTransacao(int idConta, String categoria, double valor
         return res;
     }
     
+    // Buscar conta pelo número da conta (usado em operações flexíveis)
+public Conta buscarContaPorNumero(int numeroConta) {
+    for (Conta c : contas) { // supondo que tens uma lista de contas chamada 'contas'
+        if (c.getNumeroConta() == numeroConta) {
+            return c;
+        }
+    }
+    return null;
+}
+
+// Gera um novo ID incremental para transações
+private int gerarNovoIdTransacao() {
+    return transacoes.size() + 1; // assumindo que tens uma lista chamada 'transacoes'
+}
 
 
 

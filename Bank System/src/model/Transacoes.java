@@ -19,6 +19,8 @@ public class Transacoes {
     private LocalDateTime data;
     private boolean estornada;
     private Cliente cliente;
+    private String referencia;  // novo
+    private String entidade; 
 
       //private LocalDate h;
     
@@ -198,6 +200,40 @@ public String getDescricaoTrancacao() {
 public void setDescricaoTrancacao(String descricaoTrancacao) {
     this.descricaoTrancacao = descricaoTrancacao;
 }
+
+
+public String getReferencia() {
+        return referencia;
+    }
+
+    public void setReferencia(String referencia) {
+        this.referencia = referencia;
+    }
+
+    public String getEntidade() {
+        return entidade;
+    }
+
+    public void setEntidade(String entidade) {
+        this.entidade = entidade;
+    }
+
+
+    public Transacoes(int idTransacao, int idConta, String categoria, double valor,
+                  LocalDate data, String referencia, String entidade) {
+    this.idTransacao = idTransacao;
+    this.contaOrigemId = idConta;
+    this.tipoTransacao = TipoTransacao.DEPOSITO; // padrão, pode ajustar depois
+    this.valor = valor;
+    this.dataTransacao = data.atStartOfDay(); // converte LocalDate para LocalDateTime
+    this.status = StatusTransacao.CONCLUIDA;
+    this.descricaoTrancacao = categoria;
+    this.categoria = categoria;
+    this.referencia = referencia;
+    this.entidade = entidade;
+    this.estornada = false;
+}
+
 
    
 }

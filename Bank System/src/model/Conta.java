@@ -15,6 +15,7 @@ public class Conta {
     private Cliente cliente;  // atributo da conta
     private double totalDepositos;
     private double totalSaques;
+    
 
 
     public enum TipoConta {
@@ -139,6 +140,8 @@ public double getTotalSaques() {
     public void setClienteId(Cliente clienteId) { this.clienteId = clienteId; }
     public void setNiubConta(int niubConta) { this.niubConta = niubConta; }
     public void setNib(int nib) { this.nib = nib; }
+
+    
 
   
 

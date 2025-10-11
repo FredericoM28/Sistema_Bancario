@@ -417,216 +417,481 @@ public class PainelFuncAtendimento extends JFrame {
 
     // ----------------- Painéis internos reutilizáveis (mantive tus classes originais) -----------------
 
-    class PainelNovaConta extends JPanel {
-        public PainelNovaConta(SistemaController controller) {
-            setLayout(new GridBagLayout());
-            setBackground(Color.WHITE);
-            setBorder(BorderFactory.createEmptyBorder(30, 50, 30, 50));
+    /**
+ * Painel para criar nova conta + tabela com contas existentes.
+ */
+public class PainelNovaConta extends JPanel {
+    private SistemaController controller;
+    private JTextField txtNome, txtNuit, txtEndereco, txtTelefone, txtEmail, txtDocumento;
+    private JComboBox<Conta.TipoConta> comboTipoConta;
+    private DefaultTableModel modeloContas;
+    private JTable tabelaContas;
 
-            GridBagConstraints gbc = new GridBagConstraints();
-            gbc.insets = new Insets(6, 6, 6, 6);
-            gbc.fill = GridBagConstraints.HORIZONTAL;
-            gbc.anchor = GridBagConstraints.WEST;
+    public PainelNovaConta(SistemaController controller) {
+        this.controller = controller;
+        initComponents();
+        preencherTabelaContas();
+    }
 
-            Font fonteCampo = new Font("Segoe UI", Font.PLAIN, 14);
+    private void initComponents() {
+        setLayout(new BorderLayout());
+        setBackground(Color.WHITE);
+        setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
 
-            JLabel lblNome = new JLabel("Nome do Cliente:");
-            JTextField txtNome = new JTextField(18);
-            JLabel lblNuit = new JLabel("NUIT:");
-            JTextField txtNuit = new JTextField(18);
-            JLabel lblEndereco = new JLabel("Endereço:");
-            JTextField txtEndereco = new JTextField(18);
-            JLabel lblTelefone = new JLabel("Telefone:");
-            JTextField txtTelefone = new JTextField(18);
-            JLabel lblEmail = new JLabel("Email:");
-            JTextField txtEmail = new JTextField(18);
-            JLabel lblDocumento = new JLabel("Documento (BI):");
-            JTextField txtDocumento = new JTextField(18);
-            JLabel lblTipoConta = new JLabel("Tipo de Conta:");
-            JComboBox<Conta.TipoConta> comboTipoConta = new JComboBox<>(Conta.TipoConta.values());
+        // Top - formulário
+        JPanel topo = new JPanel(new GridBagLayout());
+        topo.setBackground(Color.WHITE);
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(6,6,6,6);
+        gbc.fill = GridBagConstraints.HORIZONTAL;
 
-            JButton btnCriar = new JButton("Abrir Conta");
-            btnCriar.setFont(new Font("Segoe UI", Font.BOLD, 14));
-            btnCriar.setBackground(new Color(20, 70, 140));
-            btnCriar.setForeground(Color.WHITE);
-            btnCriar.setFocusPainted(false);
-            btnCriar.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        JLabel titulo = new JLabel("Abrir Nova Conta");
+        titulo.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        titulo.setForeground(new Color(20,70,140));
+        gbc.gridx = 0; gbc.gridy = 0; gbc.gridwidth = 2;
+        topo.add(titulo, gbc);
+        gbc.gridwidth = 1;
 
-            // Posicionamento
-            int linha = 0;
-            Component[][] campos = {
-                {lblNome, txtNome},
-                {lblNuit, txtNuit},
-                {lblEndereco, txtEndereco},
-                {lblTelefone, txtTelefone},
-                {lblEmail, txtEmail},
-                {lblDocumento, txtDocumento},
-                {lblTipoConta, comboTipoConta}
-            };
+        txtNome = new JTextField(18);
+        txtNuit = new JTextField(12);
+        txtEndereco = new JTextField(18);
+        txtTelefone = new JTextField(12);
+        txtEmail = new JTextField(18);
+        txtDocumento = new JTextField(12);
+        comboTipoConta = new JComboBox<>(Conta.TipoConta.values());
 
-            for (Component[] par : campos) {
-                gbc.gridx = 0; gbc.gridy = linha; add(par[0], gbc);
-                gbc.gridx = 1; gbc.gridy = linha; add(par[1], gbc);
-                linha++;
-            }
+        int linha = 1;
+        gbc.gridx = 0; gbc.gridy = linha; topo.add(new JLabel("Nome:"), gbc);
+        gbc.gridx = 1; topo.add(txtNome, gbc); linha++;
 
-            gbc.gridx = 1; gbc.gridy = linha++;
-            gbc.anchor = GridBagConstraints.CENTER;
-            add(btnCriar, gbc);
+        gbc.gridx = 0; gbc.gridy = linha; topo.add(new JLabel("NUIT:"), gbc);
+        gbc.gridx = 1; topo.add(txtNuit, gbc); linha++;
 
-            btnCriar.addActionListener(e -> {
-                try {
-                    String nome = txtNome.getText();
-                    int nuit = Integer.parseInt(txtNuit.getText());
-                    String endereco = txtEndereco.getText();
-                    int telefone = Integer.parseInt(txtTelefone.getText());
-                    String email = txtEmail.getText();
-                    String documento = txtDocumento.getText();
-                    Conta.TipoConta tipoConta = (Conta.TipoConta) comboTipoConta.getSelectedItem();
-                    
-                    Conta novaConta = controller.abrirContaCliente(nome, nuit, endereco, telefone, email, documento, tipoConta);
-                    if (novaConta != null) {
-                        JOptionPane.showMessageDialog(this, 
-                            "Conta criada com sucesso!\n" +
-                            "ID: " + novaConta.getIdConta() + "\n" +
-                            "Número: " + novaConta.getNumeroConta());
-                    } else {
-                        JOptionPane.showMessageDialog(this, "Erro ao criar conta.");
-                    }
-                } catch (Exception ex) {
-                    JOptionPane.showMessageDialog(this, "Erro: " + ex.getMessage());
+        gbc.gridx = 0; gbc.gridy = linha; topo.add(new JLabel("Endereço:"), gbc);
+        gbc.gridx = 1; topo.add(txtEndereco, gbc); linha++;
+
+        gbc.gridx = 0; gbc.gridy = linha; topo.add(new JLabel("Telefone:"), gbc);
+        gbc.gridx = 1; topo.add(txtTelefone, gbc); linha++;
+
+        gbc.gridx = 0; gbc.gridy = linha; topo.add(new JLabel("Email:"), gbc);
+        gbc.gridx = 1; topo.add(txtEmail, gbc); linha++;
+
+        gbc.gridx = 0; gbc.gridy = linha; topo.add(new JLabel("Documento (BI):"), gbc);
+        gbc.gridx = 1; topo.add(txtDocumento, gbc); linha++;
+
+        gbc.gridx = 0; gbc.gridy = linha; topo.add(new JLabel("Tipo de Conta:"), gbc);
+        gbc.gridx = 1; topo.add(comboTipoConta, gbc); linha++;
+
+        JButton btnAbrir = new JButton("Abrir Conta");
+        btnAbrir.setBackground(new Color(20,70,140));
+        btnAbrir.setForeground(Color.WHITE);
+        btnAbrir.setPreferredSize(new Dimension(160, 34));
+
+        gbc.gridx = 1; gbc.gridy = linha; gbc.anchor = GridBagConstraints.CENTER;
+        topo.add(btnAbrir, gbc);
+
+        add(topo, BorderLayout.NORTH);
+
+        // Centro - tabela de contas
+        String[] col = {"ID Conta","Nº Conta","Tipo","Saldo","Status","Cliente"};
+        modeloContas = new DefaultTableModel(col,0) {
+            @Override public boolean isCellEditable(int r,int c){return false;}
+        };
+        tabelaContas = new JTable(modeloContas);
+        tabelaContas.setRowHeight(24);
+        JScrollPane scroll = new JScrollPane(tabelaContas);
+        scroll.setPreferredSize(new Dimension(800, 300));
+        add(scroll, BorderLayout.CENTER);
+
+        // Rodapé - actions
+        JPanel rodape = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        rodape.setBackground(Color.WHITE);
+        JButton btnListar = new JButton("Actualizar Lista");
+        JButton btnVerHistorico = new JButton("Ver Histórico Conta (selecionada)");
+        btnListar.setBackground(new Color(0,120,200)); btnListar.setForeground(Color.WHITE);
+        btnVerHistorico.setBackground(new Color(0,120,200)); btnVerHistorico.setForeground(Color.WHITE);
+        rodape.add(btnVerHistorico);
+        rodape.add(btnListar);
+        add(rodape, BorderLayout.SOUTH);
+
+        // Ações
+        btnAbrir.addActionListener(e -> {
+            try {
+                String nome = txtNome.getText().trim();
+                int nuit = Integer.parseInt(txtNuit.getText().trim());
+                String endereco = txtEndereco.getText().trim();
+                int telefone = Integer.parseInt(txtTelefone.getText().trim());
+                String email = txtEmail.getText().trim();
+                String documento = txtDocumento.getText().trim();
+                Conta.TipoConta tipo = (Conta.TipoConta) comboTipoConta.getSelectedItem();
+
+                Conta c = controller.abrirContaCliente(nome, nuit, endereco, telefone, email, documento, tipo);
+                if (c != null) {
+                    JOptionPane.showMessageDialog(this, "Conta criada! ID: " + c.getIdConta() + " Nº: " + c.getNumeroConta());
+                    limparFormulario();
+                    preencherTabelaContas();
+                } else {
+                    JOptionPane.showMessageDialog(this, "Erro ao criar conta.");
                 }
+            } catch (NumberFormatException ex) {
+                JOptionPane.showMessageDialog(this, "Campos numéricos inválidos (NUIT/Telefone).");
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this, "Erro: " + ex.getMessage());
+            }
+        });
+
+        btnListar.addActionListener(e -> preencherTabelaContas());
+
+        btnVerHistorico.addActionListener(e -> {
+            int sel = tabelaContas.getSelectedRow();
+            if (sel == -1) { JOptionPane.showMessageDialog(this, "Selecione uma conta."); return; }
+            int idConta = Integer.parseInt(modeloContas.getValueAt(sel,0).toString());
+            List<?> historico = controller.consultarHistorico(idConta);
+            JOptionPane.showMessageDialog(this, "Historico: " + historico.size() + " registos (ver console).");
+            // podes abrir um diálogo mais rico aqui. Em app leve mostro apenas contagem.
+        });
+    }
+
+    private void limparFormulario() {
+        txtNome.setText("");
+        txtNuit.setText("");
+        txtEndereco.setText("");
+        txtTelefone.setText("");
+        txtEmail.setText("");
+        txtDocumento.setText("");
+        comboTipoConta.setSelectedIndex(0);
+    }
+
+    private void preencherTabelaContas() {
+        modeloContas.setRowCount(0);
+        List<Conta> contas = controller.listarContas();
+        for (Conta c : contas) {
+            String clienteNome = tryGetClienteNome(c);
+            modeloContas.addRow(new Object[]{
+                    c.getIdConta(),
+                    c.getNumeroConta(),
+                    c.getTipoConta(),
+                    String.format("%.2f", c.getSaldo()),
+                    c.getStatus(),
+                    clienteNome
             });
         }
     }
 
-    class PainelAtualizarDados extends JPanel {
-        public PainelAtualizarDados(SistemaController controller) {
-            setLayout(new GridBagLayout());
-            setBackground(Color.WHITE);
-            setBorder(BorderFactory.createEmptyBorder(30, 60, 30, 60));
-
-            GridBagConstraints gbc = new GridBagConstraints();
-            gbc.insets = new Insets(6, 6, 6, 6);
-            gbc.fill = GridBagConstraints.HORIZONTAL;
-
-            JLabel lblID = new JLabel("ID do Cliente:");
-            JTextField txtID = new JTextField(15);
-            JLabel lblNovoNome = new JLabel("Novo Nome:");
-            JTextField txtNovoNome = new JTextField(15);
-            JLabel lblNovoEmail = new JLabel("Novo Email:");
-            JTextField txtNovoEmail = new JTextField(15);
-            JLabel lblNovoTelefone = new JLabel("Novo Telefone:");
-            JTextField txtNovoTelefone = new JTextField(15);
-            JButton btnAtualizar = new JButton("Atualizar");
-
-            int linha = 0;
-            Component[][] campos = {
-                {lblID, txtID},
-                {lblNovoNome, txtNovoNome},
-                {lblNovoEmail, txtNovoEmail},
-                {lblNovoTelefone, txtNovoTelefone}
-            };
-
-            for (Component[] par : campos) {
-                gbc.gridx = 0; gbc.gridy = linha; add(par[0], gbc);
-                gbc.gridx = 1; add(par[1], gbc);
-                linha++;
-            }
-
-            gbc.gridx = 1; gbc.gridy = linha; gbc.anchor = GridBagConstraints.CENTER;
-            add(btnAtualizar, gbc);
-
-            btnAtualizar.setFont(new Font("Segoe UI", Font.BOLD, 14));
-            btnAtualizar.setBackground(new Color(20, 70, 140));
-            btnAtualizar.setForeground(Color.WHITE);
-
-            btnAtualizar.addActionListener(e -> {
-                try {
-                    int id = Integer.parseInt(txtID.getText());
-                    String nome = txtNovoNome.getText();
-                    String email = txtNovoEmail.getText();
-                    int telefone = Integer.parseInt(txtNovoTelefone.getText());
-                    
-                    boolean ok = controller.atualizarDadosCliente(id, nome, email, telefone);
-                    JOptionPane.showMessageDialog(this, ok ? "Dados atualizados!" : "Erro: Cliente não encontrado.");
-                } catch (Exception ex) {
-                    JOptionPane.showMessageDialog(this, "Erro: " + ex.getMessage());
+    // tenta recuperar nome do cliente pois Conta tem getters variados entre implementações
+    private String tryGetClienteNome(Conta c) {
+        try {
+            // se Conta tem getCliente() retornando Cliente
+            Cliente cli = null;
+            try {
+                Object possible = c.getClienteId();
+                if (possible instanceof Cliente) cli = (Cliente) possible;
+                else {
+                    // se getClienteId devolve int, procurar
+                    int cid = Integer.parseInt(String.valueOf(possible));
+                    cli = controller.buscarClientePorId(cid);
                 }
-            });
+            } catch (Exception ex) {
+                // tenta método getCliente (algumas versões)
+                try {
+                    java.lang.reflect.Method m = c.getClass().getMethod("getCliente");
+                    Object ret = m.invoke(c);
+                    if (ret instanceof Cliente) cli = (Cliente) ret;
+                } catch (Exception ignored){}
+            }
+            return (cli != null) ? cli.getNomeCli() : "";
+        } catch (Exception ex) {
+            return "";
         }
     }
+}
 
-    class PainelEncerrarConta extends JPanel {
-        public PainelEncerrarConta(SistemaController controller) {
-            setLayout(new GridBagLayout());
-            setBackground(Color.WHITE);
-            setBorder(BorderFactory.createEmptyBorder(40, 80, 40, 80));
+    public class PainelEncerrarConta extends JPanel {
+    private SistemaController controller;
+    private DefaultTableModel modeloContas;
+    private JTable tabelaContas;
+    private JTextField txtIdEncerrar;
 
-            GridBagConstraints gbc = new GridBagConstraints();
-            gbc.insets = new Insets(8, 8, 8, 8);
-            gbc.fill = GridBagConstraints.HORIZONTAL;
+    public PainelEncerrarConta(SistemaController controller) {
+        this.controller = controller;
+        initComponents();
+        preencherTabela();
+    }
 
-            JLabel lblID = new JLabel("ID da Conta:");
-            JTextField txtID = new JTextField(15);
-            JButton btnEncerrar = new JButton("Encerrar Conta");
+    private void initComponents() {
+        setLayout(new BorderLayout());
+        setBackground(Color.WHITE);
+        setBorder(BorderFactory.createEmptyBorder(16,16,16,16));
 
-            gbc.gridx = 0; gbc.gridy = 0; add(lblID, gbc);
-            gbc.gridx = 1; add(txtID, gbc);
-            gbc.gridx = 1; gbc.gridy = 1;
-            gbc.anchor = GridBagConstraints.CENTER;
-            add(btnEncerrar, gbc);
+        JLabel titulo = new JLabel("Encerrar Conta");
+        titulo.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        titulo.setForeground(new Color(20,70,140));
+        add(titulo, BorderLayout.NORTH);
 
-            btnEncerrar.setBackground(new Color(180, 40, 40));
-            btnEncerrar.setForeground(Color.WHITE);
-            btnEncerrar.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        // tabela
+        String[] cols = {"ID Conta","Nº Conta","Tipo","Saldo","Status"};
+        modeloContas = new DefaultTableModel(cols,0) { @Override public boolean isCellEditable(int r,int c){return false;} };
+        tabelaContas = new JTable(modeloContas);
+        tabelaContas.setRowHeight(24);
+        add(new JScrollPane(tabelaContas), BorderLayout.CENTER);
 
-            btnEncerrar.addActionListener(e -> {
-                try {
-                    int id = Integer.parseInt(txtID.getText());
+        // rodape com actions
+        JPanel rodape = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        rodape.setBackground(Color.WHITE);
+
+        JButton btnListar = new JButton("Actualizar Lista");
+        JButton btnEncerrarSel = new JButton("Encerrar Conta Selecionada");
+        JButton btnEncerrarById = new JButton("Encerrar por ID");
+
+        txtIdEncerrar = new JTextField(8);
+
+        btnListar.setBackground(new Color(0,120,200)); btnListar.setForeground(Color.WHITE);
+        btnEncerrarSel.setBackground(new Color(180,40,40)); btnEncerrarSel.setForeground(Color.WHITE);
+        btnEncerrarById.setBackground(new Color(180,40,40)); btnEncerrarById.setForeground(Color.WHITE);
+
+        rodape.add(new JLabel("ID:"));
+        rodape.add(txtIdEncerrar);
+        rodape.add(btnEncerrarById);
+        rodape.add(btnEncerrarSel);
+        rodape.add(btnListar);
+
+        add(rodape, BorderLayout.SOUTH);
+
+        // ações
+        btnListar.addActionListener(e -> preencherTabela());
+
+        btnEncerrarSel.addActionListener(e -> {
+            int sel = tabelaContas.getSelectedRow();
+            if (sel == -1) { JOptionPane.showMessageDialog(this, "Selecione uma conta."); return; }
+            int idConta = Integer.parseInt(modeloContas.getValueAt(sel,0).toString());
+            int op = JOptionPane.showConfirmDialog(this, "Encerrar conta ID " + idConta + " ?", "Confirmar", JOptionPane.YES_NO_OPTION);
+            if (op == JOptionPane.YES_OPTION) {
+                boolean ok = controller.encerrarContaCliente(idConta);
+                JOptionPane.showMessageDialog(this, ok ? "Conta encerrada." : "Falha ao encerrar conta.");
+                preencherTabela();
+            }
+        });
+
+        btnEncerrarById.addActionListener(e -> {
+            try {
+                int id = Integer.parseInt(txtIdEncerrar.getText().trim());
+                int op = JOptionPane.showConfirmDialog(this, "Encerrar conta ID " + id + " ?", "Confirmar", JOptionPane.YES_NO_OPTION);
+                if (op == JOptionPane.YES_OPTION) {
                     boolean ok = controller.encerrarContaCliente(id);
-                    JOptionPane.showMessageDialog(this, ok ? "Conta encerrada." : "Conta não encontrada.");
-                } catch (Exception ex) {
-                    JOptionPane.showMessageDialog(this, "Erro: " + ex.getMessage());
+                    JOptionPane.showMessageDialog(this, ok ? "Conta encerrada." : "Falha ao encerrar conta.");
+                    preencherTabela();
                 }
+            } catch (NumberFormatException ex) {
+                JOptionPane.showMessageDialog(this, "ID inválido.");
+            }
+        });
+    }
+
+    private void preencherTabela() {
+        modeloContas.setRowCount(0);
+        List<Conta> contas = controller.listarContas();
+        for (Conta c : contas) {
+            modeloContas.addRow(new Object[]{
+                    c.getIdConta(),
+                    c.getNumeroConta(),
+                    c.getTipoConta(),
+                    String.format("%.2f", c.getSaldo()),
+                    c.getStatus()
             });
         }
     }
+}
 
-    class PainelCartoes extends JPanel {
-        public PainelCartoes(SistemaController controller) {
-            setLayout(new GridBagLayout());
-            setBackground(Color.WHITE);
-            setBorder(BorderFactory.createEmptyBorder(40, 80, 40, 80));
+    public class PainelCartoes extends JPanel {
+    private SistemaController controller;
+    private DefaultTableModel modeloContas;
+    private JTable tabelaContas;
+    private JTextField txtIdCartao;
 
-            GridBagConstraints gbc = new GridBagConstraints();
-            gbc.insets = new Insets(8, 8, 8, 8);
+    public PainelCartoes(SistemaController controller) {
+        this.controller = controller;
+        initComponents();
+        preencherTabela();
+    }
 
-            JLabel lblID = new JLabel("ID da Conta:");
-            JTextField txtID = new JTextField(15);
-            JButton btnReemitir = new JButton("Reemitir Cartão");
+    private void initComponents() {
+        setLayout(new BorderLayout(8,8));
+        setBackground(Color.WHITE);
+        setBorder(BorderFactory.createEmptyBorder(16,16,16,16));
 
-            gbc.gridx = 0; gbc.gridy = 0; add(lblID, gbc);
-            gbc.gridx = 1; add(txtID, gbc);
-            gbc.gridx = 1; gbc.gridy = 1;
-            gbc.anchor = GridBagConstraints.CENTER;
-            add(btnReemitir, gbc);
+        JLabel titulo = new JLabel("Cartões - Reemissão");
+        titulo.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        titulo.setForeground(new Color(20,70,140));
+        add(titulo, BorderLayout.NORTH);
 
-            btnReemitir.setBackground(new Color(20, 70, 140));
-            btnReemitir.setForeground(Color.WHITE);
-            btnReemitir.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        String[] cols = {"ID Conta","Nº Conta","Cliente","Saldo","Status"};
+        modeloContas = new DefaultTableModel(cols,0) { @Override public boolean isCellEditable(int r,int c){return false;} };
+        tabelaContas = new JTable(modeloContas);
+        tabelaContas.setRowHeight(24);
+        add(new JScrollPane(tabelaContas), BorderLayout.CENTER);
 
-            btnReemitir.addActionListener(e -> {
+        JPanel rodape = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        rodape.setBackground(Color.WHITE);
+        txtIdCartao = new JTextField(8);
+        JButton btnReemitir = new JButton("Reemitir Cartão (ID)");
+        JButton btnReemitirSel = new JButton("Reemitir Cartão (Selecionada)");
+        JButton btnList = new JButton("Actualizar Lista");
+
+        btnReemitir.setBackground(new Color(20,70,140)); btnReemitir.setForeground(Color.WHITE);
+        btnReemitirSel.setBackground(new Color(20,70,140)); btnReemitirSel.setForeground(Color.WHITE);
+        btnList.setBackground(new Color(0,120,200)); btnList.setForeground(Color.WHITE);
+
+        rodape.add(new JLabel("ID:"));
+        rodape.add(txtIdCartao);
+        rodape.add(btnReemitir);
+        rodape.add(btnReemitirSel);
+        rodape.add(btnList);
+        add(rodape, BorderLayout.SOUTH);
+
+        btnList.addActionListener(e -> preencherTabela());
+
+        btnReemitir.addActionListener(e -> {
+            try {
+                int id = Integer.parseInt(txtIdCartao.getText().trim());
+                String r = controller.reemitirCartao(id);
+                JOptionPane.showMessageDialog(this, r);
+            } catch (NumberFormatException ex) {
+                JOptionPane.showMessageDialog(this, "ID inválido.");
+            }
+        });
+
+        btnReemitirSel.addActionListener(e -> {
+            int sel = tabelaContas.getSelectedRow();
+            if (sel == -1) { JOptionPane.showMessageDialog(this, "Selecione uma conta."); return; }
+            int id = Integer.parseInt(modeloContas.getValueAt(sel,0).toString());
+            String r = controller.reemitirCartao(id);
+            JOptionPane.showMessageDialog(this, r);
+        });
+    }
+
+    private void preencherTabela() {
+        modeloContas.setRowCount(0);
+        List<Conta> contas = controller.listarContas();
+        for (Conta c : contas) {
+            String cliente = "";
+            try {
+                Object clienteRef = c.getClienteId();
+                if (clienteRef instanceof Integer) {
+                    int cid = (Integer) clienteRef;
+                    // tentar obter nome via controller
+                    cliente = controller.buscarClientePorId(cid) != null ? controller.buscarClientePorId(cid).getNomeCli() : "";
+                } else if (clienteRef instanceof model.Cliente) {
+                    cliente = ((model.Cliente) clienteRef).getNomeCli();
+                }
+            } catch (Exception ignore) {}
+            modeloContas.addRow(new Object[]{
+                    c.getIdConta(),
+                    c.getNumeroConta(),
+                    cliente,
+                    String.format("%.2f", c.getSaldo()),
+                    c.getStatus()
+            });
+        }
+    }
+}
+
+public class PainelAtualizarDados extends JPanel {
+    private SistemaController controller;
+    private DefaultTableModel modeloClientes;
+    private JTable tabelaClientes;
+
+    public PainelAtualizarDados(SistemaController controller) {
+        this.controller = controller;
+        initComponents();
+        preencherTabela();
+    }
+
+    private void initComponents() {
+        setLayout(new BorderLayout(8,8));
+        setBackground(Color.WHITE);
+        setBorder(BorderFactory.createEmptyBorder(16,16,16,16));
+
+        JLabel titulo = new JLabel("Atualizar Dados dos Clientes");
+        titulo.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        titulo.setForeground(new Color(20,70,140));
+        add(titulo, BorderLayout.NORTH);
+
+        String[] cols = {"ID","Nome","NUIT","Telefone","Email"};
+        modeloClientes = new DefaultTableModel(cols,0) { @Override public boolean isCellEditable(int r,int c){return false;} };
+        tabelaClientes = new JTable(modeloClientes);
+        tabelaClientes.setRowHeight(24);
+        add(new JScrollPane(tabelaClientes), BorderLayout.CENTER);
+
+        JPanel rodape = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        rodape.setBackground(Color.WHITE);
+        JButton btnAtualizar = new JButton("Actualizar Lista");
+        JButton btnEditar = new JButton("Editar Selecionado");
+        JButton btnVer = new JButton("Ver Detalhes");
+
+        btnAtualizar.setBackground(new Color(0,120,200)); btnAtualizar.setForeground(Color.WHITE);
+        btnEditar.setBackground(new Color(20,70,140)); btnEditar.setForeground(Color.WHITE);
+        btnVer.setBackground(new Color(20,70,140)); btnVer.setForeground(Color.WHITE);
+
+        rodape.add(btnVer);
+        rodape.add(btnEditar);
+        rodape.add(btnAtualizar);
+        add(rodape, BorderLayout.SOUTH);
+
+        btnAtualizar.addActionListener(e -> preencherTabela());
+
+        btnVer.addActionListener(e -> {
+            int sel = tabelaClientes.getSelectedRow();
+            if (sel == -1) { JOptionPane.showMessageDialog(this, "Selecione um cliente."); return; }
+            int id = Integer.parseInt(modeloClientes.getValueAt(sel,0).toString());
+            Cliente c = controller.buscarClientePorId(id);
+            if (c != null) {
+                String msg = "ID: " + c.getIdCliente() + "\nNome: " + c.getNomeCli() + "\nNUIT: " + c.getNuitCli()
+                        + "\nEmail: " + c.getEmailCli() + "\nTelefone: " + c.getTelefoneCli()
+                        + "\nEndereço: " + c.getEnderecoCli();
+                JOptionPane.showMessageDialog(this, msg, "Detalhes Cliente", JOptionPane.INFORMATION_MESSAGE);
+            } else {
+                JOptionPane.showMessageDialog(this, "Cliente não encontrado.");
+            }
+        });
+
+        btnEditar.addActionListener(e -> {
+            int sel = tabelaClientes.getSelectedRow();
+            if (sel == -1) { JOptionPane.showMessageDialog(this, "Selecione um cliente."); return; }
+            int id = Integer.parseInt(modeloClientes.getValueAt(sel,0).toString());
+            Cliente c = controller.buscarClientePorId(id);
+            if (c == null) { JOptionPane.showMessageDialog(this, "Cliente não encontrado."); return; }
+
+            JTextField fNome = new JTextField(c.getNomeCli());
+            JTextField fEmail = new JTextField(c.getEmailCli());
+            JTextField fTel = new JTextField(String.valueOf(c.getTelefoneCli()));
+            Object[] msg = {"Nome:", fNome, "Email:", fEmail, "Telefone:", fTel};
+            int op = JOptionPane.showConfirmDialog(this, msg, "Editar Cliente ID " + id, JOptionPane.OK_CANCEL_OPTION);
+            if (op == JOptionPane.OK_OPTION) {
                 try {
-                    int id = Integer.parseInt(txtID.getText());
-                    String resultado = controller.reemitirCartao(id);
-                    JOptionPane.showMessageDialog(this, resultado);
-                } catch (Exception ex) {
-                    JOptionPane.showMessageDialog(this, "Erro: " + ex.getMessage());
+                    boolean ok = controller.atualizarDadosCliente(id, fNome.getText().trim(), fEmail.getText().trim(), Integer.parseInt(fTel.getText().trim()));
+                    JOptionPane.showMessageDialog(this, ok ? "Atualizado com sucesso." : "Falha ao atualizar.");
+                    preencherTabela();
+                } catch (NumberFormatException ex) {
+                    JOptionPane.showMessageDialog(this, "Telefone inválido.");
                 }
+            }
+        });
+    }
+
+    private void preencherTabela() {
+        modeloClientes.setRowCount(0);
+        List<Cliente> clientes = controller.listarClientes();
+        for (Cliente c : clientes) {
+            modeloClientes.addRow(new Object[]{
+                    c.getIdCliente(),
+                    c.getNomeCli(),
+                    c.getNuitCli(),
+                    c.getTelefoneCli(),
+                    c.getEmailCli()
             });
         }
     }
+}
 
     class PainelSuporte extends JPanel {
         public PainelSuporte(SistemaController controller) {
