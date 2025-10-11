@@ -766,6 +766,30 @@ public Transacoes registrarTransacao(int idConta, String categoria, double valor
         return sb.toString();
     }
 
+     public List<Transacoes> listarDepositos() {
+        List<Transacoes> res = new ArrayList<>();
+        for (Transacoes t : transacoes) {
+            String cat = t.getCategoria();
+            if (cat != null && cat.toLowerCase().contains("dep")) {
+                res.add(t);
+            }
+        }
+        return res;
+     }
+
+    /**
+     * Lista apenas as transações categorizadas como Saque
+     */
+    public List<Transacoes> listarSaques() {
+        List<Transacoes> res = new ArrayList<>();
+        for (Transacoes t : transacoes) {
+            String cat = t.getCategoria();
+            if (cat != null && (cat.toLowerCase().contains("saque") || cat.toLowerCase().contains("levant"))) {
+                res.add(t);
+            }
+        }
+        return res;
+    }
     
 
 
