@@ -84,4 +84,11 @@ public int getId() { return id; }
             this.dataAprovacao = LocalDate.now();
         }
     }
+
+    public void setDataAprovacao(LocalDate dataAprovacao) {
+        this.dataAprovacao = dataAprovacao;
+    }
+    
+
+
 }

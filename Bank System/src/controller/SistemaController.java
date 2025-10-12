@@ -5,9 +5,8 @@ import model.Cliente;
 import model.Conta;
 import model.Emprestimo;
 import model.Funcionario;
-//import model.Emprestimo.emprestimos;
 import model.Transacoes;
-import DAO.BancoDAO;
+import DAO.*;
 
 import java.sql.SQLException;
 import java.time.LocalDate;
@@ -18,53 +17,55 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
-
-
 public class SistemaController {
     private double taxaJuros = 0.05; // 5% padrão
 
-
-    private List<Cliente> clientes = new ArrayList<>();
-    private List<Conta> contas = new ArrayList<>();
-    private List<Transacoes> transacoes = new ArrayList<>();
-    private List<Emprestimo> emprestimos = new ArrayList<>();
-    private List<Funcionario> funcionarios = new ArrayList<>();
-    private int idFuncionario = 1;
+    // DAOs para persistência
+    private ClienteDAO clienteDAO;
+    private ContaDAO contaDAO;
+    private TransacaoDAO transacaoDAO;
+    private EmprestimoDAO emprestimoDAO;
+    private FuncionarioDAO funcionarioDAO;
+    private BancoDAO bancoDAO;
+    
     private Banco banco = new Banco("Nexus Bank", 1000000); // capital inicial de exemplo
-     
-
-
-    private int proximoIdCliente = 1;
-    private int proximoIdConta = 1;
     private Random random = new Random();
-    private int proximoIdTransacao = 1;
-
-private int gerarIdTransacao() {
-    return proximoIdTransacao++;
-}
-private int proximoIdEmprestimo = 1;
-
-private int gerarIdEmprestimo() {
-    return proximoIdEmprestimo++;
-}
-
- private BancoDAO bancoDAO; // declara o DAO
 
     public SistemaController() {
-        bancoDAO = new BancoDAO(null); // inicializa o DAO
+        // Inicializa todos os DAOs
+        this.clienteDAO = new ClienteDAO();
+        this.contaDAO = new ContaDAO();
+        this.transacaoDAO = new TransacaoDAO();
+        this.emprestimoDAO = new EmprestimoDAO();
+        this.funcionarioDAO = new FuncionarioDAO();
+        this.bancoDAO = new BancoDAO(DAO.ConnectionFactory.getConnection());
+        
+        // Carrega o banco do banco de dados
+        carregarBanco();
     }
 
-     public void registrarLucroTransacao(double taxa) {
-        banco.registrarLucroTaxa(taxa);
-
+    private void carregarBanco() {
         try {
-            BancoDAO bancoDAO = new BancoDAO(null);
-            bancoDAO.atualizarBanco(banco);
+            Banco bancoCarregado = bancoDAO.getBancoPorNome("Nexus Bank");
+            if (bancoCarregado != null) {
+                this.banco = bancoCarregado;
+            } else {
+                // Se não existir, insere o banco padrão
+                bancoDAO.inserirBanco(banco);
+            }
         } catch (SQLException e) {
             e.printStackTrace();
         }
     }
 
+    public void registrarLucroTransacao(double taxa) {
+        banco.registrarLucroTaxa(taxa);
+        try {
+            bancoDAO.atualizarBanco(banco);
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
 
     // ===================== CLIENTE =====================
 
@@ -72,7 +73,7 @@ private int gerarIdEmprestimo() {
                                 String email, LocalDate idade, String documento, String senha) {
         Cliente c = new Cliente(
                 nome,
-                proximoIdCliente++,
+                0, // ID será gerado pelo banco
                 nuit,
                 endereco,
                 telefone,
@@ -82,76 +83,70 @@ private int gerarIdEmprestimo() {
                 documento,
                 senha
         );
-        clientes.add(c);
+        clienteDAO.salvar(c);
         return c;
     }
 
     public List<Cliente> listarClientes() {
-        return clientes;
+        return clienteDAO.listarTodos();
     }
 
     public Cliente buscarClientePorId(int id) {
-        return clientes.stream()
-                .filter(cli -> cli.getIdCliente() == id)
-                .findFirst()
-                .orElse(null);
+        return clienteDAO.buscarPorId(id);
     }
 
     public boolean editarCliente(int id, String novoNome, String novoEmail, int novoTelefone) {
-        Cliente cli = buscarClientePorId(id);
+        Cliente cli = clienteDAO.buscarPorId(id);
         if (cli != null) {
             cli.setNomeCli(novoNome);
             cli.setEmailCli(novoEmail);
             cli.setTelefoneCli(novoTelefone);
+            clienteDAO.atualizar(cli);
             return true;
         }
         return false;
     }
 
     public boolean eliminarCliente(int id) {
-        return clientes.removeIf(c -> c.getIdCliente() == id);
+        try {
+            clienteDAO.deletar(id);
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
     }
 
-    // Solicitar empréstimo (fica pendente)
-    /*public boolean solicitarEmprestimo(int idConta, double valor, int prazoMeses) {
-        Conta conta = buscarContaPorId(idConta);
-        if (conta != null) {
-           // Emprestimo emp = new Emprestimo(conta, valor, prazoMeses, Emprestimo.Status.PENDENTE);
-           Emprestimo emp = new Emprestimo(conta, valor, prazoMeses, Emprestimo.StatusEmprestimo.PENDENTE);
+    // ===================== EMPRÉSTIMOS =====================
 
-            emprestimos.add(emp);
-            return true;
-        }
-        return false;
-    }*/
     public boolean solicitarEmprestimo(int idConta, double valor, int prazoMeses) {
-    Conta conta = buscarContaPorId(idConta);
-    if (conta == null) return false;
+        Conta conta = buscarContaPorId(idConta);
+        if (conta == null) return false;
 
-    Cliente cliente = conta.getClienteId(); // tua Conta tem getClienteId()
-    Emprestimo emp = new Emprestimo(
-            gerarIdEmprestimo(),
-            cliente,
-            valor,
-            this.taxaJuros,   // taxa global definida no controller
-            prazoMeses
-    );
-    // o construtor de Emprestimo já define status = PENDENTE por padrão
-    emprestimos.add(emp);
-    return true;
-}
-
+        Cliente cliente = conta.getClienteId();
+        Emprestimo emp = new Emprestimo(
+                0, // ID gerado pelo banco
+                cliente,
+                valor,
+                this.taxaJuros,
+                prazoMeses
+        );
+        
+        emprestimoDAO.inserir(emp);
+        return true;
+    }
 
     public double consultarSaldo(int idConta) {
-       Conta conta = buscarContaPorId(idConta);
-       return (conta != null) ? conta.getSaldo() : -1;
+        Conta conta = buscarContaPorId(idConta);
+        return (conta != null) ? conta.getSaldo() : -1;
     }
 
     // Consultar histórico completo
     public List<Transacoes> consultarHistorico(int idConta) {
+        List<Transacoes> todasTransacoes = transacaoDAO.listarTodos();
         List<Transacoes> historico = new ArrayList<>();
-        for (Transacoes t : transacoes) {
-            if (t.getConta().getIdConta() == idConta) {
+        for (Transacoes t : todasTransacoes) {
+            if (t.getContaOrigemId() == idConta || 
+                (t.getContaDestinoId() != null && t.getContaDestinoId() == idConta)) {
                 historico.add(t);
             }
         }
@@ -161,7 +156,7 @@ private int gerarIdEmprestimo() {
     // ===================== CONTA =====================
 
     public Conta criarConta(int idCliente, Conta.TipoConta tipoConta) {
-        Cliente cliente = buscarClientePorId(idCliente);
+        Cliente cliente = clienteDAO.buscarPorId(idCliente);
         if (cliente == null) return null;
 
         int numeroConta = gerarNumeroConta();
@@ -169,7 +164,7 @@ private int gerarIdEmprestimo() {
         int nib = gerarNib();
 
         Conta conta = new Conta(
-                proximoIdConta++,
+                0, // ID gerado pelo banco
                 numeroConta,
                 tipoConta,
                 cliente,
@@ -177,15 +172,25 @@ private int gerarIdEmprestimo() {
                 nib
         );
 
-        contas.add(conta);
+        contaDAO.salvar(conta);
+        
+        // Atualiza banco
+        banco.adicionarConta(conta);
+        try {
+            bancoDAO.atualizarBanco(banco);
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        
         return conta;
     }
 
     public List<Conta> listarContas() {
-        return contas;
+        return contaDAO.listarTodas();
     }
 
     public Conta buscarContaPorId(int idConta) {
+        List<Conta> contas = contaDAO.listarTodas();
         return contas.stream()
                 .filter(c -> c.getIdConta() == idConta)
                 .findFirst()
@@ -196,36 +201,58 @@ private int gerarIdEmprestimo() {
         Conta conta = buscarContaPorId(idConta);
         if (conta != null) {
             conta.setTipoConta(novoTipo);
+            contaDAO.atualizar(conta);
             return true;
         }
         return false;
     }
 
     public boolean eliminarConta(int idConta) {
-        return contas.removeIf(c -> c.getIdConta() == idConta);
+        try {
+            contaDAO.deletar(idConta);
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     public boolean depositar(int idConta, double valor) {
         Conta conta = buscarContaPorId(idConta);
         if (conta != null && valor > 0) {
             conta.depositar(valor);
+            contaDAO.atualizar(conta);
+            
+            // Registra transação
+            registrarTransacao(idConta, "Depósito", valor);
             return true;
         }
         return false;
     }
 
-    // logica verdadeira do saque/levantamento
-
     public boolean sacar(int idConta, double valor) {
         Conta conta = buscarContaPorId(idConta);
         if (conta != null && valor > 0 && conta.getSaldo() >= valor) {
             conta.sacar(valor);
+            contaDAO.atualizar(conta);
+            
+            // Aplica taxa
+            double taxa = valor * 0.005;
+            if (conta.getSaldo() >= taxa) {
+                conta.sacar(taxa);
+                banco.registrarLucroTaxa(taxa);
+                try {
+                    bancoDAO.atualizarBanco(banco);
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+            }
+            
+            registrarTransacao(idConta, "Saque", valor);
             return true;
         }
-        return false; // saldo insuficiente ou conta inexistente
+        return false;
     }
 
-    // este metodo serve para fazer trandferenncia para mesmo banco
     public boolean transferirMesmaInstituicao(int idOrigem, int idDestino, double valor) {
         Conta origem = buscarContaPorId(idOrigem);
         Conta destino = buscarContaPorId(idDestino);
@@ -235,211 +262,186 @@ private int gerarIdEmprestimo() {
 
         origem.sacar(valor);
         destino.depositar(valor);
+        
+        // Atualiza ambas as contas
+        contaDAO.atualizar(origem);
+        contaDAO.atualizar(destino);
+        
+        // Registra transação
+        registrarTransacao(idOrigem, "Transferência Interna", valor);
+        
         return true;
     }
 
-   public boolean transferirOutroBanco(int idOrigem, String nibDestino, double valor) {
-    Conta origem = buscarContaPorId(idOrigem);
-    if (origem == null || valor <= 0 || origem.getSaldo() < valor) return false;
+    public boolean transferirOutroBanco(int idOrigem, String nibDestino, double valor) {
+        Conta origem = buscarContaPorId(idOrigem);
+        if (origem == null || valor <= 0 || origem.getSaldo() < valor) return false;
 
-    // ====== DEFINIR TAXA ======
-    double taxa = valor * 0.01; // 1% de taxa sobre o valor da transferência
+        double taxa = valor * 0.01;
+        if (origem.getSaldo() < (valor + taxa)) return false;
 
-    // Verifica se há saldo suficiente para valor + taxa
-    if (origem.getSaldo() < (valor + taxa)) return false;
+        origem.sacar(valor);
+        origem.sacar(taxa);
+        contaDAO.atualizar(origem);
 
-    // Debita valor e taxa da conta
-    origem.sacar(valor);
-    origem.sacar(taxa);
+        banco.registrarLucroTaxa(taxa);
+        try {
+            bancoDAO.atualizarBanco(banco);
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
 
-    // Registra lucro da taxa no banco
-    banco.registrarLucroTaxa(taxa);
-   // bancoDAO.atualizarBanco(banco); // persiste o lucro e capital atualizado
-
-    // Simula envio para outro banco (externo)
-    return true;
-}
-
+        registrarTransacao(idOrigem, "Transferência Externa", valor);
+        return true;
+    }
 
     public boolean transferirCarteiraMovel(int idOrigem, String numeroTelefone, double valor) {
         Conta origem = buscarContaPorId(idOrigem);
         if (origem == null || valor <= 0 || origem.getSaldo() < valor) return false;
 
         origem.sacar(valor);
-        // Aqui apenas simula o envio para a carteira móvel (M-Pesa, etc.)
+        contaDAO.atualizar(origem);
+        
+        registrarTransacao(idOrigem, "Transferência Carteira Móvel", valor);
         return true;
     }
 
-    // Creditar
     public void creditar(int idConta, double valor) {
         Conta conta = buscarContaPorId(idConta);
         if (conta != null) {
             conta.depositar(valor);
+            contaDAO.atualizar(conta);
+            registrarTransacao(idConta, "Crédito", valor);
         }
     }
 
-    // Debitar
     public void debitar(int idConta, double valor) {
         Conta conta = buscarContaPorId(idConta);
         if (conta != null && conta.getSaldo() >= valor) {
             conta.sacar(valor);
+            contaDAO.atualizar(conta);
+            registrarTransacao(idConta, "Débito", valor);
         }
     }
 
-    // Consultar status
     public Conta.StatusConta consultarStatus(int idConta) {
         Conta conta = buscarContaPorId(idConta);
         return (conta != null) ? conta.getStatus() : null;
     }
 
-    // Alterar status
     public boolean alterarStatus(int idConta, Conta.StatusConta novoStatus) {
         Conta conta = buscarContaPorId(idConta);
         if (conta != null) {
             conta.setStatus(novoStatus);
+            contaDAO.atualizar(conta);
             return true;
         }
         return false;
     }
 
+    // ===================== OPERAÇÕES DE FUNCIONÁRIO =====================
 
-    //Metodos para Funcionario 1
-    // Registrar depósito (chama SistemaController.depositar)
     public boolean registrarDeposito(int idConta, double valor) {
         return depositar(idConta, valor);
     }
 
-    // Registrar levantamento (chama SistemaController.sacar)
-    public boolean registrarLevantamento(int idConta,int numeroConta, double valor) {
-        return sacar(idConta, /*numeroConta,*/ valor);
+    public boolean registrarLevantamento(int idConta, double valor) {
+        return sacar(idConta, valor);
     }
 
+    public boolean registrarDepositoFlexivel(Integer idConta, Integer numeroConta, Double valor, String referencia, String entidade) {
+        if (valor == null || valor <= 0) return false;
 
-    // ====== Depósito Flexível ======
-public boolean registrarDepositoFlexivel(Integer idConta, Integer numeroConta, Double valor, String referencia, String entidade) {
-    if (valor == null || valor <= 0) return false;
+        Conta conta = null;
+        if (idConta != null) {
+            conta = buscarContaPorId(idConta);
+        }
+        if (conta == null && numeroConta != null) {
+            conta = buscarContaPorNumero(numeroConta);
+        }
 
-    Conta conta = null;
-
-    // tentar encontrar a conta pelo id ou pelo número
-    if (idConta != null) {
-        conta = buscarContaPorId(idConta);
-    }
-    if (conta == null && numeroConta != null) {
-        conta = buscarContaPorNumero(numeroConta);
-    }
-
-    if (conta != null) {
-        conta.depositar(valor);
-        registrarTransacao(conta.getIdConta(), "Depósito", valor, referencia, entidade);
-        return true;
-    }
-    return false;
-}
-
-// ====== Levantamento Flexível ======
-public boolean registrarLevantamentoFlexivel(Integer idConta, Integer numeroConta, Double valor, String referencia, String entidade) {
-    if (valor == null || valor <= 0) return false;
-
-    Conta conta = null;
-
-    if (idConta != null) {
-        conta = buscarContaPorId(idConta);
-    }
-    if (conta == null && numeroConta != null) {
-        conta = buscarContaPorNumero(numeroConta);
+        if (conta != null) {
+            conta.depositar(valor);
+            contaDAO.atualizar(conta);
+            registrarTransacaoCompleta(conta.getIdConta(), "Depósito Flexível", valor, referencia, entidade);
+            return true;
+        }
+        return false;
     }
 
-    if (conta != null && conta.getSaldo() >= valor) {
-        conta.sacar(valor);
-        registrarTransacao(conta.getIdConta(), "Saque", valor, referencia, entidade);
-        return true;
-    }
-    return false;
-}
+    public boolean registrarLevantamentoFlexivel(Integer idConta, Integer numeroConta, Double valor, String referencia, String entidade) {
+        if (valor == null || valor <= 0) return false;
 
-// Atualizado registrarTransacao para incluir referência e entidade
-public Transacoes registrarTransacao(int idConta, String categoria, double valor, 
-                                     String referencia, String entidade) {
-    Conta conta = buscarContaPorId(idConta);
-    if (conta == null) return null;
+        Conta conta = null;
+        if (idConta != null) {
+            conta = buscarContaPorId(idConta);
+        }
+        if (conta == null && numeroConta != null) {
+            conta = buscarContaPorNumero(numeroConta);
+        }
 
-    int idT = gerarIdTransacao();
-    LocalDateTime now = LocalDateTime.now();
-
-    Transacoes.TipoTransacao tipo = Transacoes.TipoTransacao.DEPOSITO;
-    if (categoria != null) {
-        String c = categoria.toLowerCase();
-        if (c.contains("saque") || c.contains("levant")) tipo = Transacoes.TipoTransacao.SAQUE;
-        else if (c.contains("transfer")) tipo = Transacoes.TipoTransacao.TRANSFERENCIA;
+        if (conta != null && conta.getSaldo() >= valor) {
+            conta.sacar(valor);
+            contaDAO.atualizar(conta);
+            registrarTransacaoCompleta(conta.getIdConta(), "Saque Flexível", valor, referencia, entidade);
+            return true;
+        }
+        return false;
     }
 
-    Transacoes.StatusTransacao status = Transacoes.StatusTransacao.CONCLUIDA;
+    private Transacoes registrarTransacaoCompleta(int idConta, String categoria, double valor, 
+                                                 String referencia, String entidade) {
+        Conta conta = buscarContaPorId(idConta);
+        if (conta == null) return null;
 
-    // Taxa de exemplo
-    double taxa = valor * 0.01;
-    if (tipo != Transacoes.TipoTransacao.DEPOSITO && conta.getSaldo() >= taxa) {
-        conta.sacar(taxa);
-        banco.registrarLucroTaxa(taxa);
+        Transacoes.TipoTransacao tipo = Transacoes.TipoTransacao.DEPOSITO;
+        if (categoria != null) {
+            String c = categoria.toLowerCase();
+            if (c.contains("saque") || c.contains("levant")) tipo = Transacoes.TipoTransacao.SAQUE;
+            else if (c.contains("transfer")) tipo = Transacoes.TipoTransacao.TRANSFERENCIA;
+        }
+
+        Transacoes t = new Transacoes(
+            0, // ID gerado pelo banco
+            tipo,
+            valor,
+            LocalDateTime.now(),
+            conta.getIdConta(),
+            null,
+            Transacoes.StatusTransacao.CONCLUIDA,
+            categoria,
+            conta,
+            categoria,
+            LocalDateTime.now(),
+            false
+        );
+        
+        // Se sua classe Transacoes tiver esses campos:
+        try {
+            t.getClass().getMethod("setReferencia", String.class).invoke(t, referencia);
+            t.getClass().getMethod("setEntidade", String.class).invoke(t, entidade);
+        } catch (Exception e) {
+            // Campos não existem, ignora
+        }
+
+        transacaoDAO.inserir(t);
+        return t;
     }
 
-    Transacoes t = new Transacoes(
-        idT,
-        tipo,
-        valor,
-        now,
-        conta.getIdConta(),
-        null,
-        status,
-        categoria,
-        conta,
-        categoria,
-        now,
-        false
-    );
-    
-    // Guarda as informações de referência e entidade se tua classe Transacoes tiver campos
-    t.setReferencia(referencia);
-    t.setEntidade(entidade);
-
-    transacoes.add(t);
-    return t;
-}
-
-
-
-
-    // Emitir recibo (aqui só retorna String, mas poderia gerar PDF)
     public String emitirRecibo(int idTransacao) {
-        for (Transacoes t : transacoes) {
-            if (t.getId() == idTransacao) {
-                return "RECIBO - Transação: " + t.getCategoria() +
-                    " | Valor: " + t.getValor() +
-                    " | Data: " + t.getData();
-            }
+        Transacoes t = transacaoDAO.buscarPorId(idTransacao);
+        if (t != null) {
+            return "RECIBO - Transação: " + t.getCategoria() +
+                " | Valor: " + t.getValor() +
+                " | Data: " + t.getDataTransacao();
         }
         return "Transação não encontrada.";
     }
 
-    // Consultar operação por ID
     public Transacoes consultarOperacao(int idTransacao) {
-        for (Transacoes t : transacoes) {
-            if (t.getIdCliente() == idTransacao) return t;
-        }
-        return null;
+        return transacaoDAO.buscarPorId(idTransacao);
     }
 
-    // Funcionraio 22222222222222222222222222222222222
-    // Abrir conta para cliente (wrapper para abrirConta)
-   // public Conta abrirContaCliente(String nomeCli, int nuitcli, String endereco, int telefone, String email, String documento) {
-    //    return criarConta/*abrirConta*/(nomeCli, nuitcli, endereco, telefone, email, documento);
-        
-    //}
-
-    /**
- * Pesquisa clientes por termo, podendo filtrar por ID, nome ou número da conta.
- * tipo: "ID", "Nome" ou "Nº Conta"
- */
     public List<Cliente> pesquisarClientes(String termo, String tipo) {
         if (termo == null || termo.trim().isEmpty()) return listarClientes();
         termo = termo.trim();
@@ -457,8 +459,8 @@ public Transacoes registrarTransacao(int idConta, String categoria, double valor
         }
 
         if ("Nome".equalsIgnoreCase(tipo)) {
-            for (Cliente c : clientes) {
-                // usa o getter de nome que tiveres na classe Cliente
+            List<Cliente> todosClientes = listarClientes();
+            for (Cliente c : todosClientes) {
                 if (c.getNomeCli() != null && c.getNomeCli().toLowerCase().contains(termo.toLowerCase())) {
                     encontrados.add(c);
                 }
@@ -469,17 +471,12 @@ public Transacoes registrarTransacao(int idConta, String categoria, double valor
         if ("Nº Conta".equalsIgnoreCase(tipo) || "NUM_CONTA".equalsIgnoreCase(tipo)) {
             try {
                 int numero = Integer.parseInt(termo);
-                for (Conta ct : contas) {
+                List<Conta> todasContas = listarContas();
+                for (Conta ct : todasContas) {
                     if (ct.getNumeroConta() == numero) {
-                        // ct.getClienteId() pode retornar Cliente ou int dependendo da tua implementação
-                        Object clienteRef = ct.getClienteId();
-                        int cid = -1;
-                        if (clienteRef instanceof Cliente) cid = ((Cliente) clienteRef).getIdCliente();
-                        else if (clienteRef instanceof Integer) cid = (Integer) clienteRef;
-
-                        if (cid != -1) {
-                            Cliente c = buscarClientePorId(cid);
-                            if (c != null) encontrados.add(c);
+                        Cliente cliente = ct.getClienteId();
+                        if (cliente != null) {
+                            encontrados.add(cliente);
                         }
                     }
                 }
@@ -490,16 +487,18 @@ public Transacoes registrarTransacao(int idConta, String categoria, double valor
         }
 
         // fallback: pesquisa por nome
-        for (Cliente c : clientes) {
-            if (c.getNomeCli() != null && c.getNomeCli().toLowerCase().contains(termo.toLowerCase())) encontrados.add(c);
+        List<Cliente> todosClientes = listarClientes();
+        for (Cliente c : todosClientes) {
+            if (c.getNomeCli() != null && c.getNomeCli().toLowerCase().contains(termo.toLowerCase())) 
+                encontrados.add(c);
         }
         return encontrados;
     }
 
-    public Conta abrirContaCliente(String nomeCli, int nuitcli, String endereco, int telefone, String email, String     documento, Conta.TipoConta tipoConta) {
+    public Conta abrirContaCliente(String nomeCli, int nuitcli, String endereco, int telefone, String email, String documento, Conta.TipoConta tipoConta) {
         Cliente novoCliente = new Cliente(
             nomeCli,
-            proximoIdCliente++,
+            0, // ID gerado pelo banco
             nuitcli,
             endereco,
             telefone,
@@ -510,260 +509,216 @@ public Transacoes registrarTransacao(int idConta, String categoria, double valor
             "1234"
         );
 
-        clientes.add(novoCliente);
+        clienteDAO.salvar(novoCliente);
 
-        // Cria a conta e armazena numa variável
         Conta novaConta = criarConta(novoCliente.getIdCliente(), tipoConta);
-
-        // Atualiza banco
-        banco.adicionarConta(novaConta); // agora funciona
-
         return novaConta;
     }
-    
 
-    // Atualizar dados do cliente
     public boolean atualizarDadosCliente(int id, String novoNome, String novoEmail, int novoTelefone) {
         return editarCliente(id, novoNome, novoEmail, novoTelefone);
     }
 
-    // Encerrar conta de cliente
     public boolean encerrarContaCliente(int idConta) {
-        return encerrarConta(idConta);
+        return alterarStatus(idConta, Conta.StatusConta.INATIVA);
     }
 
-    // Consultar dados do cliente
     public Cliente consultarDadosCliente(int idCliente) {
         return buscarClientePorId(idCliente);
     }
 
-    // Reemitir cartão (simula gerando novo número aleatório)
     public String reemitirCartao(int idConta) {
         Conta conta = buscarContaPorId(idConta);
         if (conta != null) {
             String novoCartao = "CARTAO-" + gerarNumeroConta();
-            return novoCartao; // em real, salvaria no banco
+            return novoCartao;
         }
         return "Conta não encontrada.";
     }
 
-    // Fornecer suporte (abrir ticket de suporte)
     public String fornecerSuporte(int idCliente, String descricao) {
         return "Ticket de suporte criado para cliente " + idCliente + ": " + descricao;
     }
 
+    // ===================== TRANSAÇÕES =====================
 
+    public Transacoes registrarTransacao(int idConta, String categoria, double valor) {
+        Conta conta = buscarContaPorId(idConta);
+        if (conta == null) return null;
 
-    //Transacoes
-    // Registrar transação
-   // Registrar transação com taxa do banco
-public Transacoes registrarTransacao(int idConta, String categoria, double valor) {
-    Conta conta = buscarContaPorId(idConta);
-    if (conta == null) return null;
+        Transacoes.TipoTransacao tipo = Transacoes.TipoTransacao.DEPOSITO;
+        if (categoria != null) {
+            String c = categoria.toLowerCase();
+            if (c.contains("saque") || c.contains("levant")) tipo = Transacoes.TipoTransacao.SAQUE;
+            else if (c.contains("transfer")) tipo = Transacoes.TipoTransacao.TRANSFERENCIA;
+            else tipo = Transacoes.TipoTransacao.DEPOSITO;
+        }
 
-    int idT = gerarIdTransacao();
+        Transacoes.StatusTransacao status = Transacoes.StatusTransacao.CONCLUIDA;
+        LocalDateTime now = LocalDateTime.now();
 
-    // Determinar tipo de transação
-    Transacoes.TipoTransacao tipo = Transacoes.TipoTransacao.DEPOSITO;
-    if (categoria != null) {
-        String c = categoria.toLowerCase();
-        if (c.contains("saque") || c.contains("levant")) tipo = Transacoes.TipoTransacao.SAQUE;
-        else if (c.contains("transfer")) tipo = Transacoes.TipoTransacao.TRANSFERENCIA;
-        else tipo = Transacoes.TipoTransacao.DEPOSITO;
-    }
+        // Aplica taxa se necessário
+        double taxa = valor * 0.01;
+        if (tipo != Transacoes.TipoTransacao.DEPOSITO && conta.getSaldo() >= taxa) {
+            conta.sacar(taxa);
+            contaDAO.atualizar(conta);
+            banco.registrarLucroTaxa(taxa);
+            try {
+                bancoDAO.atualizarBanco(banco);
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        }
 
-    Transacoes.StatusTransacao status = Transacoes.StatusTransacao.CONCLUIDA;
-
-    LocalDateTime now = LocalDateTime.now();
-
-    // ======== COBRAR TAXA ========
-    double taxa = valor * 0.01; // exemplo: 1% de taxa sobre valor da transação
-    if (tipo != Transacoes.TipoTransacao.DEPOSITO && conta.getSaldo() >= taxa) {
-        conta.sacar(taxa);                 // desconta da conta
-        banco.registrarLucroTaxa(taxa);    // atualiza lucro do banco
-       // bancoDAO.atualizarBanco(banco);    // persiste no banco de dados
-    }
-
-    // Criar objeto Transação
-    Transacoes t = new Transacoes(
-            idT,
+        Transacoes t = new Transacoes(
+            0, // ID gerado pelo banco
             tipo,
             valor,
             now,
             conta.getIdConta(),
-            null,                       // contaDestinoId se houver
+            null,
             status,
-            categoria,                  // descricaoTransacao
+            categoria,
             conta,
-            categoria,                  // categoria
+            categoria,
             now,
-            false                       // estornada
-    );
+            false
+        );
 
-    transacoes.add(t);
-    return t;
-}
+        transacaoDAO.inserir(t);
+        return t;
+    }
 
-
-
-    // Definir categoria de transação
     public boolean definirCategoria(int idTransacao, String novaCategoria) {
-        for (Transacoes t : transacoes) {
-            if (t.getId() == idTransacao) {
-                t.setCategoria(novaCategoria);
-                return true;
-            }
+        Transacoes t = transacaoDAO.buscarPorId(idTransacao);
+        if (t != null) {
+            t.setCategoria(novaCategoria);
+            transacaoDAO.atualizar(t);
+            return true;
         }
         return false;
     }
 
-    // Consultar transação
     public Transacoes consultarTransacao(int idTransacao) {
-        for (Transacoes t : transacoes) {
-            if (t.getId() == idTransacao) return t;
-        }
-        return null;
+        return transacaoDAO.buscarPorId(idTransacao);
     }
 
-    // Estornar transação (devolver valor para conta)
     public boolean estornarTransacao(int idTransacao) {
-        for (Transacoes t : transacoes) {
-            if (t.getId() == idTransacao && !t.isEstornada()) {
-                Conta conta = t.getConta();
-                conta.depositar(t.getValor()); // devolve valor
+        Transacoes t = transacaoDAO.buscarPorId(idTransacao);
+        if (t != null && !t.isEstornada()) {
+            Conta conta = buscarContaPorId(t.getContaOrigemId());
+            if (conta != null) {
+                conta.depositar(t.getValor());
+                contaDAO.atualizar(conta);
                 t.setEstornada(true);
+                transacaoDAO.atualizar(t);
                 return true;
             }
         }
         return false;
     }
 
+    // ===================== ADMINISTRADOR =====================
 
-    //Administrador
-    // Gerir funcionários
     public Funcionario criarFuncionario(String nomeCompletoFunc, String cargo) {
-        Funcionario f = new Funcionario(nomeCompletoFunc, cargo);
-        funcionarios.add(f);
+        Funcionario f = new Funcionario(
+            0, // ID gerado pelo banco
+            nomeCompletoFunc,
+            cargo,
+            0.0, // salário padrão
+            ""   // contacto vazio
+        );
+        funcionarioDAO.inserir(f);
         return f;
     }
 
     public boolean editarFuncionario(int idFuncionario, String novoNome, String novoCargo) {
-        for (Funcionario f : funcionarios) {
-            if (f.getIdFuncionario() == idFuncionario) {
-                f.setNomeCompletoFunc(novoNome);
-                f.setCargo(novoCargo);
-                return true;
-            }
+        Funcionario f = funcionarioDAO.buscarPorId(idFuncionario);
+        if (f != null) {
+            f.setNomeCompletoFunc(novoNome);
+            f.setCargo(novoCargo);
+            funcionarioDAO.atualizar(f);
+            return true;
         }
         return false;
     }
 
-   /*  public boolean removerFuncionario(int idFuncionario) {
-        return funcionarios.removeIf(f -> f.getIdFuncionario() == id);
-       // return funcionarios.removeIf(f -> f.getIdFuncionario() == idFuncionario);
-
-    }*/
-
     public boolean removerFuncionario(int idFuncionario) {
-        return funcionarios.removeIf(f -> f.getIdFuncionario() == idFuncionario);
+        try {
+            funcionarioDAO.deletar(idFuncionario);
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
     }
 
+    public List<Transacoes> visualizarTodasTransacoes() {
+        return transacaoDAO.listarTodos();
+    }
 
-    // Visualizar todas transações
-    /*public List<Transacao> visualizarTodasTransacoes() {
-        return transacoes;
-    }*/
-
-    // Definir taxa de juros global
     public void definirTaxasJuros(double novaTaxa) {
         this.taxaJuros = novaTaxa;
     }
 
-    // Analisar performance banco
-    /*public Map<String, Object> analisarPerformanceBanco() {
-        Map<String, Object> kpis = new HashMap<>();
-        kpis.put("Clientes Ativos", clientes.size());
-        kpis.put("Contas Ativas", contas.size());
-        kpis.put("Total Transações", transacoes.size());
-        kpis.put("Volume Financeiro", transacoes.stream().mapToDouble(Transacao::getValor).sum());
-        return kpis;
-    }*/
-    // ======================== ADMINISTRADOR ========================
-
-    // Ver todas as transações do banco
-    public List<Transacoes> visualizarTodasTransacoes() {
-        return new ArrayList<>(transacoes); // cópia para não manipular a lista original
-    }
-
-    // Analisar performance do banco (exemplo: total de transações e volume)
     public Map<String, Object> analisarPerformanceBanco() {
         Map<String, Object> analise = new HashMap<>();
+        List<Transacoes> todasTransacoes = transacaoDAO.listarTodos();
         double totalValor = 0.0;
 
-        for (Transacoes t : transacoes) {
+        for (Transacoes t : todasTransacoes) {
             totalValor += t.getValor();
         }
 
-        analise.put("TotalTransacoes", transacoes.size());
+        analise.put("TotalTransacoes", todasTransacoes.size());
         analise.put("VolumeFinanceiro", totalValor);
+        analise.put("TotalClientes", clienteDAO.listarTodos().size());
+        analise.put("TotalContas", contaDAO.listarTodas().size());
+        analise.put("CapitalBanco", banco.getCapital());
+        analise.put("LucroTotal", banco.getLucro());
 
         return analise;
     }
 
-    // ======================== GESTOR ========================
+    // ===================== GESTOR =====================
 
-    // Autorizar um empréstimo solicitado
     public boolean autorizarEmprestimo(int idSolicitacao) {
-    for (Emprestimo e : emprestimos) {
-        if (e.getIdEmprestimo() == idSolicitacao) {
-            e.setStatus(Emprestimo.emprestimos.CONFIRMADA);
-            // Registrar lucro automático do banco
-            // Calcula os juros com base no valor solicitado e na taxa de juros do empréstimo
-            double juros = e.getValorSolicitado() * e.getTaxaJuro(); 
+        Emprestimo emprestimo = emprestimoDAO.buscarPorId(idSolicitacao);
+        if (emprestimo != null) {
+            emprestimo.setStatus(Emprestimo.emprestimos.CONFIRMADA);
+            emprestimo.setDataAprovacao(LocalDate.now());
+            emprestimoDAO.atualizar(emprestimo);
 
-            // Registra o lucro no banco
+            double juros = emprestimo.getValorSolicitado() * emprestimo.getTaxaJuro();
             banco.registrarLucro(juros);
-
+            try {
+                bancoDAO.atualizarBanco(banco);
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
             return true;
         }
+        return false;
     }
-    return false; // Retorna false se não encontrou o empréstimo
-}
 
-
-    // Bloquear conta (alterar status da conta)
     public boolean bloquearConta(int idConta) {
-        for (Conta c : contas) {
-            if (c.getId() == idConta) {
-                c.setAtiva(false); // supondo que tens setAtiva(boolean)
-                return true;
-            }
-        }
-        return false;
+        return alterarStatus(idConta, Conta.StatusConta.BLOQUEADA);
     }
 
-    // Ativar conta novamente
     public boolean ativarConta(int idConta) {
-        for (Conta c : contas) {
-            if (c.getId() == idConta) {
-                c.setAtiva(true);
-                return true;
-            }
-        }
-        return false;
+        return alterarStatus(idConta, Conta.StatusConta.ATIVA);
     }
 
-    // Gerar relatório financeiro do banco num período
     public Map<String, Double> gerarRelatorioFinanceiro(LocalDateTime inicio, LocalDateTime fim) {
         Map<String, Double> relatorio = new HashMap<>();
         double entradas = 0.0;
         double saidas = 0.0;
 
-        for (Transacoes t : transacoes) {
-            if ((t.getData().isAfter(inicio) || t.getData().isEqual(inicio)) &&
-                (t.getData().isBefore(fim) || t.getData().isEqual(fim))) {
+        List<Transacoes> todasTransacoes = transacaoDAO.listarTodos();
+        for (Transacoes t : todasTransacoes) {
+            if ((t.getDataTransacao().isAfter(inicio) || t.getDataTransacao().isEqual(inicio)) &&
+                (t.getDataTransacao().isBefore(fim) || t.getDataTransacao().isEqual(fim))) {
                 
-                if (t.getCategoria().equalsIgnoreCase("Depósito")) {
+                if (t.getTipoTransacao() == Transacoes.TipoTransacao.DEPOSITO) {
                     entradas += t.getValor();
                 } else {
                     saidas += t.getValor();
@@ -778,242 +733,223 @@ public Transacoes registrarTransacao(int idConta, String categoria, double valor
         return relatorio;
     }
 
+    public boolean encerrarConta(int idConta) {
+        return alterarStatus(idConta, Conta.StatusConta.INATIVA);
+    }
 
-   public boolean encerrarConta(int idConta) {
+    public boolean sacarComTaxa(int idConta, double valor) {
         Conta conta = buscarContaPorId(idConta);
-        if (conta != null) {
-            conta.setAtiva(false);
+        if (conta != null && valor > 0 && conta.getSaldo() >= valor) {
+            double taxa = valor * 0.005;
+            conta.sacar(valor + taxa);
+            contaDAO.atualizar(conta);
+            banco.registrarLucroTaxa(taxa);
+            try {
+                bancoDAO.atualizarBanco(banco);
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+
+            registrarTransacao(idConta, "Saque com Taxa", valor);
             return true;
         }
         return false;
     }
-
-
-   public boolean sacarComTaxa(int idConta, double valor) {
-    Conta conta = buscarContaPorId(idConta);
-    if (conta != null && valor > 0 && conta.getSaldo() >= valor) {
-        double taxa = valor * 0.005; // 0.5% de taxa
-        conta.sacar(valor + taxa);    // saca valor + taxa
-        banco.registrarLucroTaxa(taxa);
-
-        // registra a transação
-        registrarTransacao(idConta, "Saque", valor);
-        return true;
-    }
-    return false;
-}
 
     public boolean transferirComTaxa(int idOrigem, int idDestino, double valor) {
         Conta origem = buscarContaPorId(idOrigem);
         Conta destino = buscarContaPorId(idDestino);
         if (origem != null && destino != null && valor > 0 && origem.getSaldo() >= valor) {
-            double taxa = valor * 0.002; // 0.2% de taxa
+            double taxa = valor * 0.002;
             origem.sacar(valor + taxa);
             destino.depositar(valor);
+            
+            contaDAO.atualizar(origem);
+            contaDAO.atualizar(destino);
+            
             banco.registrarLucroTaxa(taxa);
+            try {
+                bancoDAO.atualizarBanco(banco);
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
 
-            registrarTransacao(idOrigem, "Transferência", valor);
+            registrarTransacao(idOrigem, "Transferência com Taxa", valor);
             return true;
         }
         return false;
     }
 
-    // ===================== MÉTODOS DE AUTENTICAÇÃO =====================
+    // ===================== AUTENTICAÇÃO =====================
 
-/**
- * Autentica um usuário baseado no identificador (email, username ou ID)
- * e retorna o tipo de usuário autenticado
- */
-public String autenticarUsuario(String identificador, String senha) {
-    if (identificador == null || senha == null) {
+    public String autenticarUsuario(String identificador, String senha) {
+        if (identificador == null || senha == null) {
+            return "invalido";
+        }
+        
+        identificador = identificador.trim().toLowerCase();
+        
+        // 1. Verifica se é Administrador
+        if (autenticarAdmin(identificador, senha)) {
+            return "admin";
+        }
+        
+        // 2. Verifica se é Gestor
+        if (autenticarGestor(identificador, senha)) {
+            return "gestor";
+        }
+        
+        // 3. Verifica se é Funcionário
+        if (autenticarFuncionario(identificador, senha)) {
+            return "funcionario";
+        }
+        
+        // 4. Verifica se é Cliente (por email ou ID)
+        if (autenticarCliente(identificador, senha)) {
+            return "cliente";
+        }
+        
         return "invalido";
     }
-    
-    identificador = identificador.trim().toLowerCase();
-    
-    // 1. Verifica se é Administrador
-    if (autenticarAdmin(identificador, senha)) {
-        return "admin";
-    }
-    
-    // 2. Verifica se é Gestor
-    if (autenticarGestor(identificador, senha)) {
-        return "gestor";
-    }
-    
-    // 3. Verifica se é Funcionário
-    if (autenticarFuncionario(identificador, senha)) {
-        return "funcionario";
-    }
-    
-    // 4. Verifica se é Cliente (por email ou ID)
-    if (autenticarCliente(identificador, senha)) {
-        return "cliente";
-    }
-    
-    return "invalido";
-}
 
-/**
- * Autenticação para Administrador
- */
-private boolean autenticarAdmin(String identificador, String senha) {
-    return ("admin".equals(identificador) || "administrador".equals(identificador)) 
-           && "admin123".equals(senha);
-}
-
-/**
- * Autenticação para Gestor
- */
-private boolean autenticarGestor(String identificador, String senha) {
-    // Pode ser "gestor" ou "gestorX" onde X é o ID
-    if (identificador.startsWith("gestor")) {
-        if ("gestor".equals(identificador) && "gestor123".equals(senha)) {
-            return true;
-        }
-        // Verifica se é gestor com ID específico
-        try {
-            String idStr = identificador.substring(6); // Remove "gestor"
-            if (!idStr.isEmpty()) {
-                int id = Integer.parseInt(idStr);
-                for (Funcionario func : funcionarios) {
-                    if (func.getIdFuncionario() == id && 
-                        "Gestor".equalsIgnoreCase(func.getCargo()) &&
-                        "gestor123".equals(senha)) {
-                        return true;
-                    }
-                }
-            }
-        } catch (NumberFormatException e) {
-            // Não é um ID numérico, continua
-        }
+    private boolean autenticarAdmin(String identificador, String senha) {
+        return ("admin".equals(identificador) || "administrador".equals(identificador)) 
+               && "admin123".equals(senha);
     }
-    return false;
-}
 
-/**
- * Autenticação para Funcionário
- */
-private boolean autenticarFuncionario(String identificador, String senha) {
-    // Pode ser "funcionario", "funcX" ou email do funcionário
-    if (identificador.startsWith("func")) {
-        if ("funcionario".equals(identificador) && "funcionario123".equals(senha)) {
-            return true;
-        }
-        // Verifica se é funcionário com ID específico
-        try {
-            String idStr = identificador.substring(4); // Remove "func"
-            if (!idStr.isEmpty()) {
-                int id = Integer.parseInt(idStr);
-                for (Funcionario func : funcionarios) {
-                    if (func.getIdFuncionario() == id && 
-                        "funcionario123".equals(senha)) {
-                        return true;
-                    }
-                }
-            }
-        } catch (NumberFormatException e) {
-            // Não é um ID numérico, continua
-        }
-    }
-    
-    // Verifica por email (se tiver email nos funcionários)
-    for (Funcionario func : funcionarios) {
-        // Se a classe Funcionario tiver email, verifica aqui
-        if (func.getNomeCompletoFunc().toLowerCase().contains(identificador) &&
-            "funcionario123".equals(senha)) {
-            return true;
-        }
-    }
-    
-    return false;
-}
-
-/**
- * Autenticação para Cliente (por email ou ID)
- */
-private boolean autenticarCliente(String identificador, String senha) {
-    for (Cliente cliente : clientes) {
-        // Verifica por email
-        if (cliente.getEmailCli() != null && 
-            cliente.getEmailCli().toLowerCase().equals(identificador) &&
-            cliente.getSenhacli().equals(senha)) {
-            return true;
-        }
-        
-        // Verifica por ID (ex: "cliente1", "123")
-        try {
-            int id = Integer.parseInt(identificador);
-            if (cliente.getIdCliente() == id && cliente.getSenhacli().equals(senha)) {
+    private boolean autenticarGestor(String identificador, String senha) {
+        if (identificador.startsWith("gestor")) {
+            if ("gestor".equals(identificador) && "gestor123".equals(senha)) {
                 return true;
             }
-        } catch (NumberFormatException e) {
-            // Não é um ID numérico, continua
+            try {
+                String idStr = identificador.substring(6);
+                if (!idStr.isEmpty()) {
+                    int id = Integer.parseInt(idStr);
+                    List<Funcionario> funcionarios = funcionarioDAO.listarTodos();
+                    for (Funcionario func : funcionarios) {
+                        if (func.getIdFuncionario() == id && 
+                            "Gestor".equalsIgnoreCase(func.getCargo()) &&
+                            "gestor123".equals(senha)) {
+                            return true;
+                        }
+                    }
+                }
+            } catch (NumberFormatException e) {
+                // Não é um ID numérico
+            }
         }
-        
-        // Verifica por nome (se nome for único)
-        if (cliente.getNomeCli() != null && 
-            cliente.getNomeCli().toLowerCase().equals(identificador) &&
-            cliente.getSenhacli().equals(senha)) {
-            return true;
-        }
+        return false;
     }
-    return false;
-}
 
-/**
- * Retorna o cliente autenticado para uso na TelaCliente
- */
-public Cliente getClienteAutenticado(String identificador) {
-    for (Cliente cliente : clientes) {
-        // Verifica por email
-        if (cliente.getEmailCli() != null && 
-            cliente.getEmailCli().equalsIgnoreCase(identificador)) {
-            return cliente;
+    private boolean autenticarFuncionario(String identificador, String senha) {
+        if (identificador.startsWith("func")) {
+            if ("funcionario".equals(identificador) && "funcionario123".equals(senha)) {
+                return true;
+            }
+            try {
+                String idStr = identificador.substring(4);
+                if (!idStr.isEmpty()) {
+                    int id = Integer.parseInt(idStr);
+                    List<Funcionario> funcionarios = funcionarioDAO.listarTodos();
+                    for (Funcionario func : funcionarios) {
+                        if (func.getIdFuncionario() == id && 
+                            "funcionario123".equals(senha)) {
+                            return true;
+                        }
+                    }
+                }
+            } catch (NumberFormatException e) {
+                // Não é um ID numérico
+            }
         }
         
-        // Verifica por ID
-        try {
-            int id = Integer.parseInt(identificador);
-            if (cliente.getIdCliente() == id) {
+        List<Funcionario> funcionarios = funcionarioDAO.listarTodos();
+        for (Funcionario func : funcionarios) {
+            if (func.getNomeCompletoFunc().toLowerCase().contains(identificador) &&
+                "funcionario123".equals(senha)) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+
+    private boolean autenticarCliente(String identificador, String senha) {
+        List<Cliente> clientes = clienteDAO.listarTodos();
+        for (Cliente cliente : clientes) {
+            // Verifica por email
+            if (cliente.getEmailCli() != null && 
+                cliente.getEmailCli().toLowerCase().equals(identificador) &&
+                cliente.getSenhacli().equals(senha)) {
+                return true;
+            }
+            
+            // Verifica por ID
+            try {
+                int id = Integer.parseInt(identificador);
+                if (cliente.getIdCliente() == id && cliente.getSenhacli().equals(senha)) {
+                    return true;
+                }
+            } catch (NumberFormatException e) {
+                // Não é um ID numérico
+            }
+            
+            // Verifica por nome
+            if (cliente.getNomeCli() != null && 
+                cliente.getNomeCli().toLowerCase().equals(identificador) &&
+                cliente.getSenhacli().equals(senha)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public Cliente getClienteAutenticado(String identificador) {
+        List<Cliente> clientes = clienteDAO.listarTodos();
+        for (Cliente cliente : clientes) {
+            if (cliente.getEmailCli() != null && 
+                cliente.getEmailCli().equalsIgnoreCase(identificador)) {
                 return cliente;
             }
-        } catch (NumberFormatException e) {
-            // Não é ID numérico
+            
+            try {
+                int id = Integer.parseInt(identificador);
+                if (cliente.getIdCliente() == id) {
+                    return cliente;
+                }
+            } catch (NumberFormatException e) {
+                // Não é ID numérico
+            }
+            
+            if (cliente.getNomeCli() != null && 
+                cliente.getNomeCli().equalsIgnoreCase(identificador)) {
+                return cliente;
+            }
         }
-        
-        // Verifica por nome
-        if (cliente.getNomeCli() != null && 
-            cliente.getNomeCli().equalsIgnoreCase(identificador)) {
-            return cliente;
+        return null;
+    }
+
+    public String getNomeUsuario(String identificador, String tipoUsuario) {
+        switch (tipoUsuario) {
+            case "admin":
+                return "Administrador";
+            case "gestor":
+                return "Gestor do Sistema";
+            case "funcionario":
+                return "Funcionário";
+            case "cliente":
+                Cliente cliente = getClienteAutenticado(identificador);
+                return cliente != null ? cliente.getNomeCli() : "Cliente";
+            default:
+                return "Usuário";
         }
     }
-    return null;
-}
 
-/**
- * Retorna dados do usuário para exibição (nome)
- */
-public String getNomeUsuario(String identificador, String tipoUsuario) {
-    switch (tipoUsuario) {
-        case "admin":
-            return "Administrador";
-        case "gestor":
-            return "Gestor do Sistema";
-        case "funcionario":
-            return "Funcionário";
-        case "cliente":
-            Cliente cliente = getClienteAutenticado(identificador);
-            return cliente != null ? cliente.getNomeCli() : "Cliente";
-        default:
-            return "Usuário";
-    }
-}
+    // ===================== RELATÓRIOS =====================
 
-    // ================= MÉTODOS PARA RELATÓRIOS E CÁLCULOS DO CAIXA =================
-
-    // Retorna o saldo total de todas as contas
     public double calcularSaldoTotal() {
+        List<Conta> contas = contaDAO.listarTodas();
         double total = 0.0;
         for (Conta conta : contas) {
             total += conta.getSaldo();
@@ -1021,29 +957,10 @@ public String getNomeUsuario(String identificador, String tipoUsuario) {
         return total;
     }
 
-    // Retorna o total de depósitos feitos (baseado em histórico simples)
-    public double getTotalDepositos() {
-        double totalDepositos = 0.0;
-        for (Conta conta : contas) {
-            totalDepositos += conta.getTotalDepositos(); // Este método deve existir em Conta
-        }
-        return totalDepositos;
-    }
-
-    // Retorna o total de saques realizados
-    public double getTotalSaques() {
-        double totalSaques = 0.0;
-        for (Conta conta : contas) {
-            totalSaques += conta.getTotalSaques(); // Este método deve existir em Conta
-        }
-        return totalSaques;
-    }
-
-    // Gera um pequeno relatório textual com informações resumidas do caixa
     public String gerarRelatorioCaixa() {
         StringBuilder sb = new StringBuilder();
         sb.append("=== RELATÓRIO DO CAIXA ===\n\n");
-        sb.append("Total de Contas: ").append(contas.size()).append("\n");
+        sb.append("Total de Contas: ").append(contaDAO.listarTodas().size()).append("\n");
         sb.append("Saldo Total no Banco: ").append(String.format("%.2f", calcularSaldoTotal())).append(" MZN\n");
         sb.append("Total de Depósitos: ").append(String.format("%.2f", getTotalDepositos())).append(" MZN\n");
         sb.append("Total de Saques: ").append(String.format("%.2f", getTotalSaques())).append(" MZN\n");
@@ -1052,50 +969,55 @@ public String getNomeUsuario(String identificador, String tipoUsuario) {
         return sb.toString();
     }
 
-     public List<Transacoes> listarDepositos() {
-        List<Transacoes> res = new ArrayList<>();
+    public double getTotalDepositos() {
+        List<Transacoes> transacoes = transacaoDAO.listarTodos();
+        double total = 0.0;
         for (Transacoes t : transacoes) {
-            String cat = t.getCategoria();
-            if (cat != null && cat.toLowerCase().contains("dep")) {
-                res.add(t);
+            if (t.getTipoTransacao() == Transacoes.TipoTransacao.DEPOSITO) {
+                total += t.getValor();
             }
         }
-        return res;
-     }
+        return total;
+    }
 
-    /**
-     * Lista apenas as transações categorizadas como Saque
-     */
+    public double getTotalSaques() {
+        List<Transacoes> transacoes = transacaoDAO.listarTodos();
+        double total = 0.0;
+        for (Transacoes t : transacoes) {
+            if (t.getTipoTransacao() == Transacoes.TipoTransacao.SAQUE) {
+                total += t.getValor();
+            }
+        }
+        return total;
+    }
+
+    public List<Transacoes> listarDepositos() {
+        List<Transacoes> todas = transacaoDAO.listarTodos();
+        List<Transacoes> depositos = new ArrayList<>();
+        for (Transacoes t : todas) {
+            if (t.getTipoTransacao() == Transacoes.TipoTransacao.DEPOSITO) {
+                depositos.add(t);
+            }
+        }
+        return depositos;
+    }
+
     public List<Transacoes> listarSaques() {
-        List<Transacoes> res = new ArrayList<>();
-        for (Transacoes t : transacoes) {
-            String cat = t.getCategoria();
-            if (cat != null && (cat.toLowerCase().contains("saque") || cat.toLowerCase().contains("levant"))) {
-                res.add(t);
+        List<Transacoes> todas = transacaoDAO.listarTodos();
+        List<Transacoes> saques = new ArrayList<>();
+        for (Transacoes t : todas) {
+            if (t.getTipoTransacao() == Transacoes.TipoTransacao.SAQUE) {
+                saques.add(t);
             }
         }
-        return res;
+        return saques;
     }
-    
-    // Buscar conta pelo número da conta (usado em operações flexíveis)
-public Conta buscarContaPorNumero(int numeroConta) {
-    for (Conta c : contas) { // supondo que tens uma lista de contas chamada 'contas'
-        if (c.getNumeroConta() == numeroConta) {
-            return c;
-        }
+
+    public Conta buscarContaPorNumero(int numeroConta) {
+        return contaDAO.buscarPorNumero(String.valueOf(numeroConta));
     }
-    return null;
-}
 
-// Gera um novo ID incremental para transações
-private int gerarNovoIdTransacao() {
-    return transacoes.size() + 1; // assumindo que tens uma lista chamada 'transacoes'
-}
-
-
-
-
-    // geradores automatios, do numero de conta, NIB e NUIB
+    // ===================== GERADORES =====================
 
     private int gerarNumeroConta() {
         return 100000 + random.nextInt(900000);
@@ -1110,6 +1032,8 @@ private int gerarNovoIdTransacao() {
     }
 
     public static void main(String[] args) {
-        
+        // Teste básico do sistema
+        SistemaController sistema = new SistemaController();
+        System.out.println("Sistema Controller inicializado com DAOs");
     }
 }

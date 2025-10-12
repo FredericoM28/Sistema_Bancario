@@ -129,4 +129,32 @@ public class ContaDAO {
             e.printStackTrace();
         }
     }
+
+    public Conta buscarPorId(int idConta) {
+    String sql = "SELECT * FROM conta WHERE idConta=?";
+    try (Connection conn = ConnectionFactory.getConnection();
+         PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+        stmt.setInt(1, idConta);
+        try (ResultSet rs = stmt.executeQuery()) {
+            if (rs.next()) {
+                Cliente cliente = new ClienteDAO().buscarPorId(rs.getInt("idCliente"));
+                Conta conta = new Conta(
+                    rs.getInt("idConta"),
+                    rs.getInt("numeroConta"),
+                    Conta.TipoConta.valueOf(rs.getString("tipoConta")),
+                    cliente,
+                    rs.getInt("niubConta"),
+                    rs.getInt("nib")
+                );
+                conta.setSaldo(rs.getDouble("saldo"));
+                conta.setStatus(Conta.StatusConta.valueOf(rs.getString("status")));
+                return conta;
+            }
+        }
+    } catch (SQLException e) {
+        e.printStackTrace();
+    }
+    return null;
+}
 }
