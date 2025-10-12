@@ -5,7 +5,7 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 
 public class ConnectionFactory {
-    private static final String URL = "jdbc:mysql://localhost:3306/bancoDATABASE?useSSL=false&serverTimezone=UTC";
+    private static final String URL = "jdbc:mysql://localhost:3306/bancoDATABSE?useSSL=false&serverTimezone=UTC";
     private static final String USER = "root"; 
     private static final String PASSWORD = "";  // sua senha do MySQL
 
