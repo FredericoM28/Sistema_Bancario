@@ -2,6 +2,7 @@ package view;
 
 import controller.SistemaController;
 import model.Transacoes;
+import model.Conta;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
@@ -17,8 +18,8 @@ public class PainelFuncCaixa extends JFrame {
     private SistemaController sistema;
 
     // Campos de depósito e saque
-    private JTextField txtIdContaDeposito, txtValorDeposito;
-    private JTextField txtIdContaSaque, txtNumContaSaque, txtValorSaque;
+    private JTextField txtIdContaDeposito, txtValorDeposito, txtReferenciaDeposito, txtEntidadeDeposito;
+    private JTextField txtIdContaSaque, txtNumContaSaque, txtValorSaque, txtReferenciaSaque, txtEntidadeSaque;
 
     // Tabelas e modelos
     private JTable tabelaDepositos;
@@ -26,7 +27,7 @@ public class PainelFuncCaixa extends JFrame {
     private JTable tabelaSaques;
     private DefaultTableModel modeloSaques;
 
-    // Labels do dashboard (para atualização)
+    // Labels do dashboard
     private JLabel lblSaldoVal, lblTotalDepositosVal, lblTotalSaquesVal;
 
     private final DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
@@ -186,119 +187,136 @@ public class PainelFuncCaixa extends JFrame {
     }
 
     private void atualizarDashboard() {
-        lblSaldoVal.setText(String.format("%.2f MZN", sistema.calcularSaldoTotal()));
-        lblTotalDepositosVal.setText(String.format("%.2f MZN", sistema.getTotalDepositos()));
-        lblTotalSaquesVal.setText(String.format("%.2f MZN", sistema.getTotalSaques()));
+        try {
+            lblSaldoVal.setText(String.format("%.2f MZN", sistema.calcularSaldoTotal()));
+            lblTotalDepositosVal.setText(String.format("%.2f MZN", sistema.getTotalDepositos()));
+            lblTotalSaquesVal.setText(String.format("%.2f MZN", sistema.getTotalSaques()));
+        } catch (Exception e) {
+            lblSaldoVal.setText("Erro");
+            lblTotalDepositosVal.setText("Erro");
+            lblTotalSaquesVal.setText("Erro");
+        }
     }
 
     // ===================== DEPÓSITOS =====================
-   private JPanel criarPainelDepositos() {
-    JPanel painel = new JPanel(new BorderLayout(12, 12));
-    painel.setBackground(new Color(235, 242, 248));
-    painel.setBorder(BorderFactory.createEmptyBorder(16, 16, 16, 16));
+    private JPanel criarPainelDepositos() {
+        JPanel painel = new JPanel(new BorderLayout(12, 12));
+        painel.setBackground(new Color(235, 242, 248));
+        painel.setBorder(BorderFactory.createEmptyBorder(16, 16, 16, 16));
 
-    // ========== TOPO ==========
-    JPanel topo = new JPanel(new GridBagLayout());
-    topo.setBackground(new Color(235, 242, 248));
-    GridBagConstraints gbc = new GridBagConstraints();
-    gbc.insets = new Insets(8, 8, 8, 8);
-    gbc.fill = GridBagConstraints.HORIZONTAL;
+        // ========== TOPO ==========
+        JPanel topo = new JPanel(new GridBagLayout());
+        topo.setBackground(new Color(235, 242, 248));
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(8, 8, 8, 8);
+        gbc.fill = GridBagConstraints.HORIZONTAL;
 
-    JLabel lblTitulo = new JLabel("💰 Registrar Depósito");
-    lblTitulo.setFont(new Font("Segoe UI", Font.BOLD, 18));
-    lblTitulo.setForeground(new Color(0, 51, 102));
+        JLabel lblTitulo = new JLabel("💰 Registrar Depósito");
+        lblTitulo.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        lblTitulo.setForeground(new Color(0, 51, 102));
 
-    txtIdContaDeposito = new JTextField(12);
-    txtValorDeposito = new JTextField(12);
-    JTextField txtReferencia = new JTextField(12);
-    JTextField txtEntidade = new JTextField(12);
+        txtIdContaDeposito = new JTextField(12);
+        txtValorDeposito = new JTextField(12);
+        txtReferenciaDeposito = new JTextField(12);
+        txtEntidadeDeposito = new JTextField(12);
 
-    JButton btnDepositar = new JButton("Confirmar Depósito");
-    JButton btnListar = new JButton("Listar Depósitos");
-    JButton btnLimpar = new JButton("Limpar Campos");
+        JButton btnDepositar = new JButton("Confirmar Depósito");
+        JButton btnListar = new JButton("Listar Depósitos");
+        JButton btnLimpar = new JButton("Limpar Campos");
 
-    estilizarBotaoAcao(btnDepositar);
-    estilizarBotaoSecundario(btnListar);
-    estilizarBotaoSecundario(btnLimpar);
+        estilizarBotaoAcao(btnDepositar);
+        estilizarBotaoSecundario(btnListar);
+        estilizarBotaoSecundario(btnLimpar);
 
-    gbc.gridx = 0; gbc.gridy = 0; gbc.gridwidth = 2;
-    topo.add(lblTitulo, gbc);
+        gbc.gridx = 0; gbc.gridy = 0; gbc.gridwidth = 2;
+        topo.add(lblTitulo, gbc);
 
-    gbc.gridwidth = 1; gbc.gridy++;
-    topo.add(new JLabel("ID da Conta:"), gbc);
-    gbc.gridx = 1;
-    topo.add(txtIdContaDeposito, gbc);
+        gbc.gridwidth = 1; gbc.gridy++;
+        topo.add(new JLabel("ID da Conta:"), gbc);
+        gbc.gridx = 1;
+        topo.add(txtIdContaDeposito, gbc);
 
-    gbc.gridx = 0; gbc.gridy++;
-    topo.add(new JLabel("Valor (MZN):"), gbc);
-    gbc.gridx = 1;
-    topo.add(txtValorDeposito, gbc);
+        gbc.gridx = 0; gbc.gridy++;
+        topo.add(new JLabel("Valor (MZN):"), gbc);
+        gbc.gridx = 1;
+        topo.add(txtValorDeposito, gbc);
 
-    gbc.gridx = 0; gbc.gridy++;
-    topo.add(new JLabel("Referência:"), gbc);
-    gbc.gridx = 1;
-    topo.add(txtReferencia, gbc);
+        gbc.gridx = 0; gbc.gridy++;
+        topo.add(new JLabel("Referência:"), gbc);
+        gbc.gridx = 1;
+        topo.add(txtReferenciaDeposito, gbc);
 
-    gbc.gridx = 0; gbc.gridy++;
-    topo.add(new JLabel("Entidade:"), gbc);
-    gbc.gridx = 1;
-    topo.add(txtEntidade, gbc);
+        gbc.gridx = 0; gbc.gridy++;
+        topo.add(new JLabel("Entidade:"), gbc);
+        gbc.gridx = 1;
+        topo.add(txtEntidadeDeposito, gbc);
 
-    gbc.gridx = 0; gbc.gridy++;
-    topo.add(btnDepositar, gbc);
-    gbc.gridx = 1;
-    topo.add(btnLimpar, gbc);
-    gbc.gridx = 0; gbc.gridy++;
-    topo.add(btnListar, gbc);
+        gbc.gridx = 0; gbc.gridy++;
+        topo.add(btnDepositar, gbc);
+        gbc.gridx = 1;
+        topo.add(btnLimpar, gbc);
+        gbc.gridx = 0; gbc.gridy++;
+        topo.add(btnListar, gbc);
 
-    painel.add(topo, BorderLayout.NORTH);
+        painel.add(topo, BorderLayout.NORTH);
 
-    // ========== TABELA ==========
-    String[] col = {"ID Transação", "ID Conta", "Valor", "Data", "Referência", "Entidade", "Descrição"};
-    modeloDepositos = new DefaultTableModel(col, 0) {
-        public boolean isCellEditable(int r, int c) { return false; }
-    };
-    tabelaDepositos = new JTable(modeloDepositos);
-    tabelaDepositos.setRowHeight(24);
-    tabelaDepositos.getTableHeader().setReorderingAllowed(false);
-    JScrollPane scroll = new JScrollPane(tabelaDepositos);
-    scroll.setPreferredSize(new Dimension(700, 240));
-    painel.add(scroll, BorderLayout.CENTER);
+        // ========== TABELA ==========
+        String[] col = {"ID Transação", "ID Conta", "Valor", "Data", "Referência", "Entidade", "Descrição"};
+        modeloDepositos = new DefaultTableModel(col, 0) {
+            public boolean isCellEditable(int r, int c) { return false; }
+        };
+        tabelaDepositos = new JTable(modeloDepositos);
+        tabelaDepositos.setRowHeight(24);
+        tabelaDepositos.getTableHeader().setReorderingAllowed(false);
+        JScrollPane scroll = new JScrollPane(tabelaDepositos);
+        scroll.setPreferredSize(new Dimension(700, 240));
+        painel.add(scroll, BorderLayout.CENTER);
 
-    // ========== RODAPÉ ==========
-    JPanel rodape = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 8));
-    rodape.setBackground(new Color(235, 242, 248));
-    JButton btnAtualizar = new JButton("Actualizar Tabela");
-    estilizarBotaoSecundario(btnAtualizar);
-    rodape.add(btnAtualizar);
-    painel.add(rodape, BorderLayout.SOUTH);
+        // ========== RODAPÉ ==========
+        JPanel rodape = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 8));
+        rodape.setBackground(new Color(235, 242, 248));
+        JButton btnAtualizar = new JButton("Actualizar Tabela");
+        estilizarBotaoSecundario(btnAtualizar);
+        rodape.add(btnAtualizar);
+        painel.add(rodape, BorderLayout.SOUTH);
 
-    // ========== AÇÕES ==========
-    btnDepositar.addActionListener(e -> {
+        // ========== AÇÕES ==========
+        btnDepositar.addActionListener(e -> processarDeposito());
+        btnListar.addActionListener(e -> atualizarTabelaDepositos());
+        btnLimpar.addActionListener(e -> limparCamposDeposito());
+        btnAtualizar.addActionListener(e -> atualizarTabelaDepositos());
+
+        return painel;
+    }
+
+    private void processarDeposito() {
         try {
-            int idConta = Integer.parseInt(txtIdContaDeposito.getText().trim());
-            double valor = Double.parseDouble(txtValorDeposito.getText().trim());
-            String referencia = txtReferencia.getText().trim();
-            String entidade = txtEntidade.getText().trim();
+            Integer idConta = txtIdContaDeposito.getText().trim().isEmpty() ? null : 
+                            Integer.parseInt(txtIdContaDeposito.getText().trim());
+            Integer numeroConta = null; // Não usado no depósito flexível
+            Double valor = txtValorDeposito.getText().trim().isEmpty() ? null : 
+                         Double.parseDouble(txtValorDeposito.getText().trim());
+            String referencia = txtReferenciaDeposito.getText().trim();
+            String entidade = txtEntidadeDeposito.getText().trim();
 
-            if (valor <= 0) {
+            if (valor == null || valor <= 0) {
                 JOptionPane.showMessageDialog(this, "O valor deve ser maior que zero.");
                 return;
             }
 
-            // Chama método atualizado no SistemaController
-            Transacoes transacao = sistema.registrarTransacao(
-                idConta, "Depósito", valor, referencia, entidade
-            );
+            if (idConta == null && numeroConta == null) {
+                JOptionPane.showMessageDialog(this, "Informe pelo menos ID ou Número da Conta.");
+                return;
+            }
 
-            if (transacao != null) {
+            // Usa método flexível do SistemaController
+            boolean sucesso = sistema.registrarDepositoFlexivel(idConta, numeroConta, valor, referencia, entidade);
+
+            if (sucesso) {
                 JOptionPane.showMessageDialog(this, "Depósito realizado com sucesso!");
                 atualizarTabelaDepositos();
                 atualizarDashboard();
-                txtIdContaDeposito.setText("");
-                txtValorDeposito.setText("");
-                txtReferencia.setText("");
-                txtEntidade.setText("");
+                limparCamposDeposito();
             } else {
                 JOptionPane.showMessageDialog(this, "Erro: conta não encontrada ou dados inválidos.");
             }
@@ -306,33 +324,36 @@ public class PainelFuncCaixa extends JFrame {
         } catch (NumberFormatException ex) {
             JOptionPane.showMessageDialog(this, "Dados inválidos! Verifica o ID da conta e o valor.");
         }
-    });
+    }
 
-    btnListar.addActionListener(e -> atualizarTabelaDepositos());
-    btnLimpar.addActionListener(e -> {
+    private void limparCamposDeposito() {
         txtIdContaDeposito.setText("");
         txtValorDeposito.setText("");
-        txtReferencia.setText("");
-        txtEntidade.setText("");
-    });
-    btnAtualizar.addActionListener(e -> atualizarTabelaDepositos());
-
-    return painel;
-}
-
+        txtReferenciaDeposito.setText("");
+        txtEntidadeDeposito.setText("");
+    }
 
     private void atualizarTabelaDepositos() {
         modeloDepositos.setRowCount(0);
-        List<Transacoes> lista = sistema.listarDepositos();
-        for (Transacoes t : lista) {
-            String data = t.getData() != null ? t.getData().format(dtf) : "";
-            modeloDepositos.addRow(new Object[]{
-                    t.getId(),          // id transacao
-                    t.getConta() != null ? t.getConta().getIdConta() : t.getIdCliente(),
-                    String.format("%.2f", t.getValor()),
+        try {
+            List<Transacoes> lista = sistema.listarDepositos();
+            for (Transacoes t : lista) {
+                String data = t.getData() != null ? t.getData().format(dtf) : "";
+                String referencia = t.getReferencia() != null ? t.getReferencia() : "";
+                String entidade = t.getEntidade() != null ? t.getEntidade() : "";
+                
+                modeloDepositos.addRow(new Object[]{
+                    t.getId(),
+                    t.getConta() != null ? t.getConta().getIdConta() : "N/A",
+                    String.format("%.2f MZN", t.getValor()),
                     data,
+                    referencia,
+                    entidade,
                     t.getCategoria()
-            });
+                });
+            }
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(this, "Erro ao carregar depósitos: " + e.getMessage());
         }
     }
 
@@ -356,6 +377,9 @@ public class PainelFuncCaixa extends JFrame {
         txtIdContaSaque = new JTextField(12);
         txtNumContaSaque = new JTextField(12);
         txtValorSaque = new JTextField(12);
+        txtReferenciaSaque = new JTextField(12);
+        txtEntidadeSaque = new JTextField(12);
+        
         JButton btnSacar = new JButton("Confirmar Saque");
         JButton btnListar = new JButton("Listar Saques");
         JButton btnLimpar = new JButton("Limpar Campos");
@@ -380,6 +404,14 @@ public class PainelFuncCaixa extends JFrame {
         gbc.gridx = 1;
         topo.add(txtValorSaque, gbc);
         gbc.gridx = 0; gbc.gridy++;
+        topo.add(new JLabel("Referência:"), gbc);
+        gbc.gridx = 1;
+        topo.add(txtReferenciaSaque, gbc);
+        gbc.gridx = 0; gbc.gridy++;
+        topo.add(new JLabel("Entidade:"), gbc);
+        gbc.gridx = 1;
+        topo.add(txtEntidadeSaque, gbc);
+        gbc.gridx = 0; gbc.gridy++;
         topo.add(btnSacar, gbc);
         gbc.gridx = 1;
         topo.add(btnLimpar, gbc);
@@ -389,7 +421,7 @@ public class PainelFuncCaixa extends JFrame {
         painel.add(topo, BorderLayout.NORTH);
 
         // Centro - tabela de saques
-        String[] col = {"ID Transação", "ID Conta", "Valor", "Data", "Descrição"};
+        String[] col = {"ID Transação", "ID Conta", "Valor", "Data", "Referência", "Entidade", "Descrição"};
         modeloSaques = new DefaultTableModel(col, 0) {
             public boolean isCellEditable(int r, int c) { return false; }
         };
@@ -397,7 +429,7 @@ public class PainelFuncCaixa extends JFrame {
         tabelaSaques.setRowHeight(24);
         tabelaSaques.getTableHeader().setReorderingAllowed(false);
         JScrollPane scroll = new JScrollPane(tabelaSaques);
-        scroll.setPreferredSize(new Dimension(600, 240));
+        scroll.setPreferredSize(new Dimension(700, 240));
         painel.add(scroll, BorderLayout.CENTER);
 
         // Rodapé - ações rápidas
@@ -409,47 +441,81 @@ public class PainelFuncCaixa extends JFrame {
         painel.add(rodape, BorderLayout.SOUTH);
 
         // Ações
-        btnSacar.addActionListener(e -> {
-            try {
-                int idConta = Integer.parseInt(txtIdContaSaque.getText().trim());
-                int numeroConta = Integer.parseInt(txtNumContaSaque.getText().trim());
-                double valor = Double.parseDouble(txtValorSaque.getText().trim());
-                boolean ok = sistema.registrarLevantamento(idConta, numeroConta, valor);
-                if (ok) {
-                    JOptionPane.showMessageDialog(this, "Levantamento realizado com sucesso!");
-                    atualizarTabelaSaques();
-                    atualizarDashboard();
-                } else {
-                    JOptionPane.showMessageDialog(this, "Erro: saldo insuficiente ou conta inválida.");
-                }
-            } catch (NumberFormatException ex) {
-                JOptionPane.showMessageDialog(this, "Dados inválidos! Verifica o ID da conta, nº conta e o valor.");
-            }
-        });
-
+        btnSacar.addActionListener(e -> processarSaque());
         btnListar.addActionListener(e -> atualizarTabelaSaques());
-        btnLimpar.addActionListener(e -> {
-            txtIdContaSaque.setText("");
-            txtNumContaSaque.setText("");
-            txtValorSaque.setText("");
-        });
+        btnLimpar.addActionListener(e -> limparCamposSaque());
         btnAtualizar.addActionListener(e -> atualizarTabelaSaques());
 
         return painel;
     }
 
+    private void processarSaque() {
+        try {
+            Integer idConta = txtIdContaSaque.getText().trim().isEmpty() ? null : 
+                            Integer.parseInt(txtIdContaSaque.getText().trim());
+            Integer numeroConta = txtNumContaSaque.getText().trim().isEmpty() ? null : 
+                               Integer.parseInt(txtNumContaSaque.getText().trim());
+            Double valor = txtValorSaque.getText().trim().isEmpty() ? null : 
+                         Double.parseDouble(txtValorSaque.getText().trim());
+            String referencia = txtReferenciaSaque.getText().trim();
+            String entidade = txtEntidadeSaque.getText().trim();
+
+            if (valor == null || valor <= 0) {
+                JOptionPane.showMessageDialog(this, "O valor deve ser maior que zero.");
+                return;
+            }
+
+            if (idConta == null && numeroConta == null) {
+                JOptionPane.showMessageDialog(this, "Informe pelo menos ID ou Número da Conta.");
+                return;
+            }
+
+            // Usa método flexível do SistemaController
+            boolean sucesso = sistema.registrarLevantamentoFlexivel(idConta, numeroConta, valor, referencia, entidade);
+
+            if (sucesso) {
+                JOptionPane.showMessageDialog(this, "Saque realizado com sucesso!");
+                atualizarTabelaSaques();
+                atualizarDashboard();
+                limparCamposSaque();
+            } else {
+                JOptionPane.showMessageDialog(this, "Erro: saldo insuficiente, conta inválida ou dados incorretos.");
+            }
+
+        } catch (NumberFormatException ex) {
+            JOptionPane.showMessageDialog(this, "Dados inválidos! Verifica os campos numéricos.");
+        }
+    }
+
+    private void limparCamposSaque() {
+        txtIdContaSaque.setText("");
+        txtNumContaSaque.setText("");
+        txtValorSaque.setText("");
+        txtReferenciaSaque.setText("");
+        txtEntidadeSaque.setText("");
+    }
+
     private void atualizarTabelaSaques() {
         modeloSaques.setRowCount(0);
-        List<Transacoes> lista = sistema.listarSaques();
-        for (Transacoes t : lista) {
-            String data = t.getData() != null ? t.getData().format(dtf) : "";
-            modeloSaques.addRow(new Object[]{
+        try {
+            List<Transacoes> lista = sistema.listarSaques();
+            for (Transacoes t : lista) {
+                String data = t.getData() != null ? t.getData().format(dtf) : "";
+                String referencia = t.getReferencia() != null ? t.getReferencia() : "";
+                String entidade = t.getEntidade() != null ? t.getEntidade() : "";
+                
+                modeloSaques.addRow(new Object[]{
                     t.getId(),
-                    t.getConta() != null ? t.getConta().getIdConta() : t.getIdCliente(),
-                    String.format("%.2f", t.getValor()),
+                    t.getConta() != null ? t.getConta().getIdConta() : "N/A",
+                    String.format("%.2f MZN", t.getValor()),
                     data,
+                    referencia,
+                    entidade,
                     t.getCategoria()
-            });
+                });
+            }
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(this, "Erro ao carregar saques: " + e.getMessage());
         }
     }
 
@@ -465,14 +531,19 @@ public class PainelFuncCaixa extends JFrame {
 
         JTextArea area = new JTextArea();
         area.setEditable(false);
-        area.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        area.setFont(new Font("Consolas", Font.PLAIN, 12));
         area.setLineWrap(true);
         area.setWrapStyleWord(true);
-        area.setText(sistema.gerarRelatorioCaixa());
 
         JButton btnGerar = new JButton("Actualizar Relatório");
         estilizarBotaoAcao(btnGerar);
-        btnGerar.addActionListener(e -> area.setText(sistema.gerarRelatorioCaixa()));
+        btnGerar.addActionListener(e -> {
+            try {
+                area.setText(sistema.gerarRelatorioCaixa());
+            } catch (Exception ex) {
+                area.setText("Erro ao gerar relatório: " + ex.getMessage());
+            }
+        });
 
         painel.add(lblTitulo, BorderLayout.NORTH);
         painel.add(new JScrollPane(area), BorderLayout.CENTER);
@@ -480,6 +551,9 @@ public class PainelFuncCaixa extends JFrame {
         rod.setBackground(new Color(235, 242, 248));
         rod.add(btnGerar);
         painel.add(rod, BorderLayout.SOUTH);
+
+        // Gerar relatório inicial
+        btnGerar.doClick();
 
         return painel;
     }
@@ -492,6 +566,12 @@ public class PainelFuncCaixa extends JFrame {
         btn.setForeground(Color.WHITE);
         btn.setFont(new Font("Segoe UI", Font.BOLD, 14));
         btn.setHorizontalAlignment(SwingConstants.LEFT);
+        
+        btn.addMouseListener(new MouseAdapter() {
+            public void mouseEntered(MouseEvent e) { btn.setBackground(new Color(0, 102, 204)); }
+            public void mouseExited(MouseEvent e) { btn.setBackground(new Color(0, 76, 153)); }
+        });
+        
         return btn;
     }
 
@@ -501,6 +581,11 @@ public class PainelFuncCaixa extends JFrame {
         btn.setFont(new Font("Segoe UI", Font.BOLD, 14));
         btn.setFocusPainted(false);
         btn.setPreferredSize(new Dimension(180, 36));
+        
+        btn.addMouseListener(new MouseAdapter() {
+            public void mouseEntered(MouseEvent e) { btn.setBackground(new Color(0, 122, 255)); }
+            public void mouseExited(MouseEvent e) { btn.setBackground(new Color(0, 102, 204)); }
+        });
     }
 
     private void estilizarBotaoSecundario(JButton btn) {
@@ -509,12 +594,22 @@ public class PainelFuncCaixa extends JFrame {
         btn.setFont(new Font("Segoe UI", Font.BOLD, 13));
         btn.setFocusPainted(false);
         btn.setPreferredSize(new Dimension(160, 32));
+        
+        btn.addMouseListener(new MouseAdapter() {
+            public void mouseEntered(MouseEvent e) { btn.setBackground(new Color(200, 220, 240)); }
+            public void mouseExited(MouseEvent e) { btn.setBackground(new Color(220, 230, 240)); }
+        });
     }
 
     // ========== MAIN DE TESTE ==========
     public static void main(String[] args) {
         SistemaController sistema = new SistemaController();
-        // opcional: cria contas/tansacoes para teste
+        
+        // Criar alguns dados de teste
+        sistema.criarCliente("João Silva", 123456789, "Maputo", 821234567, "joao@email.com", 
+                           java.time.LocalDate.of(1990, 5, 15), "BI123456", "1234");
+        sistema.criarConta(1, Conta.TipoConta.CORRENTE);
+        
         SwingUtilities.invokeLater(() ->
                 new PainelFuncCaixa(sistema, "Frederico Madabula", "Caixa", "Banco Nexus").setVisible(true)
         );

@@ -818,6 +818,197 @@ public Transacoes registrarTransacao(int idConta, String categoria, double valor
         return false;
     }
 
+    // ===================== MÉTODOS DE AUTENTICAÇÃO =====================
+
+/**
+ * Autentica um usuário baseado no identificador (email, username ou ID)
+ * e retorna o tipo de usuário autenticado
+ */
+public String autenticarUsuario(String identificador, String senha) {
+    if (identificador == null || senha == null) {
+        return "invalido";
+    }
+    
+    identificador = identificador.trim().toLowerCase();
+    
+    // 1. Verifica se é Administrador
+    if (autenticarAdmin(identificador, senha)) {
+        return "admin";
+    }
+    
+    // 2. Verifica se é Gestor
+    if (autenticarGestor(identificador, senha)) {
+        return "gestor";
+    }
+    
+    // 3. Verifica se é Funcionário
+    if (autenticarFuncionario(identificador, senha)) {
+        return "funcionario";
+    }
+    
+    // 4. Verifica se é Cliente (por email ou ID)
+    if (autenticarCliente(identificador, senha)) {
+        return "cliente";
+    }
+    
+    return "invalido";
+}
+
+/**
+ * Autenticação para Administrador
+ */
+private boolean autenticarAdmin(String identificador, String senha) {
+    return ("admin".equals(identificador) || "administrador".equals(identificador)) 
+           && "admin123".equals(senha);
+}
+
+/**
+ * Autenticação para Gestor
+ */
+private boolean autenticarGestor(String identificador, String senha) {
+    // Pode ser "gestor" ou "gestorX" onde X é o ID
+    if (identificador.startsWith("gestor")) {
+        if ("gestor".equals(identificador) && "gestor123".equals(senha)) {
+            return true;
+        }
+        // Verifica se é gestor com ID específico
+        try {
+            String idStr = identificador.substring(6); // Remove "gestor"
+            if (!idStr.isEmpty()) {
+                int id = Integer.parseInt(idStr);
+                for (Funcionario func : funcionarios) {
+                    if (func.getIdFuncionario() == id && 
+                        "Gestor".equalsIgnoreCase(func.getCargo()) &&
+                        "gestor123".equals(senha)) {
+                        return true;
+                    }
+                }
+            }
+        } catch (NumberFormatException e) {
+            // Não é um ID numérico, continua
+        }
+    }
+    return false;
+}
+
+/**
+ * Autenticação para Funcionário
+ */
+private boolean autenticarFuncionario(String identificador, String senha) {
+    // Pode ser "funcionario", "funcX" ou email do funcionário
+    if (identificador.startsWith("func")) {
+        if ("funcionario".equals(identificador) && "funcionario123".equals(senha)) {
+            return true;
+        }
+        // Verifica se é funcionário com ID específico
+        try {
+            String idStr = identificador.substring(4); // Remove "func"
+            if (!idStr.isEmpty()) {
+                int id = Integer.parseInt(idStr);
+                for (Funcionario func : funcionarios) {
+                    if (func.getIdFuncionario() == id && 
+                        "funcionario123".equals(senha)) {
+                        return true;
+                    }
+                }
+            }
+        } catch (NumberFormatException e) {
+            // Não é um ID numérico, continua
+        }
+    }
+    
+    // Verifica por email (se tiver email nos funcionários)
+    for (Funcionario func : funcionarios) {
+        // Se a classe Funcionario tiver email, verifica aqui
+        if (func.getNomeCompletoFunc().toLowerCase().contains(identificador) &&
+            "funcionario123".equals(senha)) {
+            return true;
+        }
+    }
+    
+    return false;
+}
+
+/**
+ * Autenticação para Cliente (por email ou ID)
+ */
+private boolean autenticarCliente(String identificador, String senha) {
+    for (Cliente cliente : clientes) {
+        // Verifica por email
+        if (cliente.getEmailCli() != null && 
+            cliente.getEmailCli().toLowerCase().equals(identificador) &&
+            cliente.getSenhacli().equals(senha)) {
+            return true;
+        }
+        
+        // Verifica por ID (ex: "cliente1", "123")
+        try {
+            int id = Integer.parseInt(identificador);
+            if (cliente.getIdCliente() == id && cliente.getSenhacli().equals(senha)) {
+                return true;
+            }
+        } catch (NumberFormatException e) {
+            // Não é um ID numérico, continua
+        }
+        
+        // Verifica por nome (se nome for único)
+        if (cliente.getNomeCli() != null && 
+            cliente.getNomeCli().toLowerCase().equals(identificador) &&
+            cliente.getSenhacli().equals(senha)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * Retorna o cliente autenticado para uso na TelaCliente
+ */
+public Cliente getClienteAutenticado(String identificador) {
+    for (Cliente cliente : clientes) {
+        // Verifica por email
+        if (cliente.getEmailCli() != null && 
+            cliente.getEmailCli().equalsIgnoreCase(identificador)) {
+            return cliente;
+        }
+        
+        // Verifica por ID
+        try {
+            int id = Integer.parseInt(identificador);
+            if (cliente.getIdCliente() == id) {
+                return cliente;
+            }
+        } catch (NumberFormatException e) {
+            // Não é ID numérico
+        }
+        
+        // Verifica por nome
+        if (cliente.getNomeCli() != null && 
+            cliente.getNomeCli().equalsIgnoreCase(identificador)) {
+            return cliente;
+        }
+    }
+    return null;
+}
+
+/**
+ * Retorna dados do usuário para exibição (nome)
+ */
+public String getNomeUsuario(String identificador, String tipoUsuario) {
+    switch (tipoUsuario) {
+        case "admin":
+            return "Administrador";
+        case "gestor":
+            return "Gestor do Sistema";
+        case "funcionario":
+            return "Funcionário";
+        case "cliente":
+            Cliente cliente = getClienteAutenticado(identificador);
+            return cliente != null ? cliente.getNomeCli() : "Cliente";
+        default:
+            return "Usuário";
+    }
+}
 
     // ================= MÉTODOS PARA RELATÓRIOS E CÁLCULOS DO CAIXA =================
 

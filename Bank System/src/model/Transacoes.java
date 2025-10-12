@@ -234,6 +234,10 @@ public String getReferencia() {
     this.estornada = false;
 }
 
+    public Cliente getCliente() {
+        return cliente;
+    }
+
 
    
 }
