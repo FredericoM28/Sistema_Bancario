@@ -40,20 +40,20 @@ public class BancoDAO {
         }
     }
 
-    // ✅ CORRIGIDO: Obter banco pelo nome
+    //  Obter banco pelo nome
     public Banco getBancoPorNome(String nome) throws SQLException {
         String sql = "SELECT * FROM bancoCapital WHERE nome = ?";
         try (PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, nome);
             ResultSet rs = stmt.executeQuery();
             if (rs.next()) {
-                // ✅ CORREÇÃO: Criar banco e carregar TODOS os valores
+                //CORREÇÃO: Criar banco e carregar TODOS os valores
                 Banco banco = new Banco(
                     rs.getString("nome"),
                     rs.getDouble("capital")
                 );
                 
-                // ✅ CORREÇÃO: Usar setters em vez de registrarLucro
+                // Usar setters em vez de registrarLucro
                 banco.setLucro(rs.getDouble("lucroTotal"));
                 banco.setLucroTaxas(rs.getDouble("lucroTaxas"));
                 

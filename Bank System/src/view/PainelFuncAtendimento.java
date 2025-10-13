@@ -9,6 +9,8 @@ import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.event.*;
+import java.time.LocalDate;
+import java.time.Period;
 import java.util.List;
 
 public class PainelFuncAtendimento extends JFrame {
@@ -462,6 +464,7 @@ public class PainelFuncAtendimento extends JFrame {
         private SistemaController controller;
         private JTextField txtNome, txtNuit, txtEndereco, txtTelefone, txtEmail, txtDocumento;
         private JComboBox<Conta.TipoConta> comboTipoConta;
+        private JSpinner spinnerAno, spinnerMes, spinnerDia;
         private DefaultTableModel modeloContas;
         private JTable tabelaContas;
 
@@ -498,6 +501,25 @@ public class PainelFuncAtendimento extends JFrame {
             txtDocumento = new JTextField(12);
             comboTipoConta = new JComboBox<>(Conta.TipoConta.values());
 
+            // Componentes para data de nascimento
+            JPanel painelData = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
+            painelData.setBackground(Color.WHITE);
+            
+            spinnerDia = new JSpinner(new SpinnerNumberModel(1, 1, 31, 1));
+            spinnerMes = new JSpinner(new SpinnerNumberModel(1, 1, 12, 1));
+            spinnerAno = new JSpinner(new SpinnerNumberModel(1990, 1900, LocalDate.now().getYear(), 1));
+            
+            spinnerDia.setPreferredSize(new Dimension(50, 25));
+            spinnerMes.setPreferredSize(new Dimension(50, 25));
+            spinnerAno.setPreferredSize(new Dimension(60, 25));
+            
+            painelData.add(new JLabel("Dia:"));
+            painelData.add(spinnerDia);
+            painelData.add(new JLabel("Mês:"));
+            painelData.add(spinnerMes);
+            painelData.add(new JLabel("Ano:"));
+            painelData.add(spinnerAno);
+
             int linha = 1;
             gbc.gridx = 0; gbc.gridy = linha; topo.add(new JLabel("Nome:"), gbc);
             gbc.gridx = 1; topo.add(txtNome, gbc); linha++;
@@ -517,6 +539,9 @@ public class PainelFuncAtendimento extends JFrame {
             gbc.gridx = 0; gbc.gridy = linha; topo.add(new JLabel("Documento (BI):"), gbc);
             gbc.gridx = 1; topo.add(txtDocumento, gbc); linha++;
 
+            gbc.gridx = 0; gbc.gridy = linha; topo.add(new JLabel("Data de Nascimento:"), gbc);
+            gbc.gridx = 1; topo.add(painelData, gbc); linha++;
+
             gbc.gridx = 0; gbc.gridy = linha; topo.add(new JLabel("Tipo de Conta:"), gbc);
             gbc.gridx = 1; topo.add(comboTipoConta, gbc); linha++;
 
@@ -531,7 +556,7 @@ public class PainelFuncAtendimento extends JFrame {
             add(topo, BorderLayout.NORTH);
 
             // Centro - tabela de contas
-            String[] col = {"ID Conta","Nº Conta","Tipo","Saldo","Status","Cliente"};
+            String[] col = {"ID Conta","Nº Conta","Tipo","Saldo","Status","Cliente", "NUIB", "NIB"};
             modeloContas = new DefaultTableModel(col,0) {
                 @Override public boolean isCellEditable(int r,int c){return false;}
             };
@@ -562,10 +587,44 @@ public class PainelFuncAtendimento extends JFrame {
                     String email = txtEmail.getText().trim();
                     String documento = txtDocumento.getText().trim();
                     Conta.TipoConta tipo = (Conta.TipoConta) comboTipoConta.getSelectedItem();
+                    
+                    // Obter data de nascimento
+                    int dia = (Integer) spinnerDia.getValue();
+                    int mes = (Integer) spinnerMes.getValue();
+                    int ano = (Integer) spinnerAno.getValue();
+                    
+                    LocalDate dataNascimento = LocalDate.of(ano, mes, dia);
+                    
+                    // Validar idade (maior de 18 anos)
+                    LocalDate hoje = LocalDate.now();
+                    int idade = Period.between(dataNascimento, hoje).getYears();
+                    
+                    if (idade < 18) {
+                        JOptionPane.showMessageDialog(this, 
+                            "❌ Cliente deve ter pelo menos 18 anos.\n" +
+                            "Idade calculada: " + idade + " anos.\n" +
+                            "Data de nascimento: " + dataNascimento, 
+                            "Idade Insuficiente", 
+                            JOptionPane.WARNING_MESSAGE);
+                        return;
+                    }
 
+                    // Chamar o método do controller para abrir conta
                     Conta c = controller.abrirContaCliente(nome, nuit, endereco, telefone, email, documento, tipo);
                     if (c != null) {
-                        JOptionPane.showMessageDialog(this, "✅ Conta criada com sucesso!\nID: " + c.getIdConta() + "\nNº: " + c.getNumeroConta());
+                        // Obter NUIB e NIB da conta criada
+                        String nuib = String.valueOf(c.getNiubConta());
+                        String nib = String.valueOf(c.getNib());
+                        
+                        JOptionPane.showMessageDialog(this, 
+                            "✅ Conta criada com sucesso!\n" +
+                            "ID: " + c.getIdConta() + "\n" +
+                            "Nº Conta: " + c.getNumeroConta() + "\n" +
+                            "NUIB: " + nuib + "\n" +
+                            "NIB: " + nib,
+                            "Conta Criada",
+                            JOptionPane.INFORMATION_MESSAGE);
+                            
                         limparFormulario();
                         preencherTabelaContas();
                     } else {
@@ -575,6 +634,7 @@ public class PainelFuncAtendimento extends JFrame {
                     JOptionPane.showMessageDialog(this, "❌ Campos numéricos inválidos (NUIT/Telefone).");
                 } catch (Exception ex) {
                     JOptionPane.showMessageDialog(this, "❌ Erro: " + ex.getMessage());
+                    ex.printStackTrace();
                 }
             });
 
@@ -624,6 +684,9 @@ public class PainelFuncAtendimento extends JFrame {
             txtEmail.setText("");
             txtDocumento.setText("");
             comboTipoConta.setSelectedIndex(0);
+            spinnerDia.setValue(1);
+            spinnerMes.setValue(1);
+            spinnerAno.setValue(1990);
         }
 
         private void preencherTabelaContas() {
@@ -637,7 +700,9 @@ public class PainelFuncAtendimento extends JFrame {
                         c.getTipoConta(),
                         String.format("%.2f MZN", c.getSaldo()),
                         c.getStatus(),
-                        clienteNome
+                        clienteNome,
+                        c.getNiubConta(),
+                        c.getNib()
                 });
             }
         }
@@ -972,7 +1037,7 @@ public class PainelFuncAtendimento extends JFrame {
                 if (op == JOptionPane.OK_OPTION) {
                     try {
                         boolean ok = controller.atualizarDadosCliente(id, fNome.getText().trim(), fEmail.getText().trim(), Integer.parseInt(fTel.getText().trim()));
-                        JOptionPane.showMessageDialog(this, ok ? "✅ Atualizado com sucesso." : "❌ Falha ao atualizar.");
+                        JOptionPane.showMessageDialog(this, ok ? " Atualizado com sucesso." : " Falha ao atualizar.");
                         preencherTabela();
                     } catch (NumberFormatException ex) {
                         JOptionPane.showMessageDialog(this, "❌ Telefone inválido.");
@@ -1081,12 +1146,6 @@ public class PainelFuncAtendimento extends JFrame {
     public static void main(String[] args) {
         SistemaController sc = new SistemaController();
         
-        // Adicion*a alguns dados de teste
-        /*sc.criarCliente("João Silva", 123456789, "Rua A, 10", 823456789, "joao@mail.com", 
-                       java.time.LocalDate.of(1990,1,1), "BI12345", "senha");
-        sc.criarCliente("Maria Santos", 987654321, "Av B, 20", 844556677, "maria@mail.com", 
-                       java.time.LocalDate.of(1985,5,5), "BI98765", "senha"); */
-
         SwingUtilities.invokeLater(() -> {
             PainelFuncAtendimento p = new PainelFuncAtendimento(sc, "Frederico", "Atendimento");
             p.setVisible(true);
