@@ -606,9 +606,9 @@ public class PainelFuncCaixa extends JFrame {
         SistemaController sistema = new SistemaController();
         
         // Criar alguns dados de teste
-        sistema.criarCliente("João Silva", 123456789, "Maputo", 821234567, "joao@email.com", 
+        /*sistema.criarCliente("João Silva", 123456789, "Maputo", 821234567, "joao@email.com", 
                            java.time.LocalDate.of(1990, 5, 15), "BI123456", "1234");
-        sistema.criarConta(1, Conta.TipoConta.CORRENTE);
+        sistema.criarConta(1, Conta.TipoConta.CORRENTE);*/
         
         SwingUtilities.invokeLater(() ->
                 new PainelFuncCaixa(sistema, "Frederico Madabula", "Caixa", "Banco Nexus").setVisible(true)

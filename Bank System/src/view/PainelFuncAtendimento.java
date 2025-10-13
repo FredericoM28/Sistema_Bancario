@@ -1081,11 +1081,11 @@ public class PainelFuncAtendimento extends JFrame {
     public static void main(String[] args) {
         SistemaController sc = new SistemaController();
         
-        // Adiciona alguns dados de teste
-        sc.criarCliente("João Silva", 123456789, "Rua A, 10", 823456789, "joao@mail.com", 
+        // Adicion*a alguns dados de teste
+        /*sc.criarCliente("João Silva", 123456789, "Rua A, 10", 823456789, "joao@mail.com", 
                        java.time.LocalDate.of(1990,1,1), "BI12345", "senha");
         sc.criarCliente("Maria Santos", 987654321, "Av B, 20", 844556677, "maria@mail.com", 
-                       java.time.LocalDate.of(1985,5,5), "BI98765", "senha");
+                       java.time.LocalDate.of(1985,5,5), "BI98765", "senha"); */
 
         SwingUtilities.invokeLater(() -> {
             PainelFuncAtendimento p = new PainelFuncAtendimento(sc, "Frederico", "Atendimento");
