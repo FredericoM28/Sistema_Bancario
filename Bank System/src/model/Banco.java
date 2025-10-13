@@ -1,7 +1,5 @@
 package model;
 
-
-
 import java.util.ArrayList;
 import java.util.List;
 
@@ -10,38 +8,33 @@ public class Banco {
     private double capital;
     private double lucro;
     private List<Conta> contas;
-
     private double lucroTaxas; // lucro apenas de transações
-public void registrarLucroTaxa(double valor) {
-    lucroTaxas += valor;
-    registrarLucro(valor); // aumenta capital e lucro total
-}
-//public double getLucroTaxas() { return lucroTaxas; }
-
 
     public Banco(String nome, double capitalInicial) {
         this.nome = nome;
         this.capital = capitalInicial;
         this.lucro = 0;
+        this.lucroTaxas = 0; // ✅ INICIALIZAR
         this.contas = new ArrayList<>();
     }
 
-    public String getNome() {
-    return nome;
-}
+    public void registrarLucroTaxa(double valor) {
+        this.lucroTaxas += valor;
+        registrarLucro(valor); // aumenta capital e lucro total
+    }
 
-public double getLucroTaxas() {
-    return lucroTaxas;
-}
-
+    public void registrarLucro(double valor) {
+        this.lucro += valor;
+        this.capital += valor;
+    }
 
     public void adicionarConta(Conta conta) {
         contas.add(conta);
     }
 
-    public void registrarLucro(double valor) {
-        lucro += valor;
-        capital += valor;
+    // ✅ GETTERS COMPLETOS
+    public String getNome() {
+        return nome;
     }
 
     public double getCapital() {
@@ -52,9 +45,24 @@ public double getLucroTaxas() {
         return lucro;
     }
 
+    public double getLucroTaxas() {
+        return lucroTaxas;
+    }
+
     public List<Conta> getContas() {
         return contas;
     }
 
-    
+    // ✅ SETTERS PARA CARREGAR DO BANCO
+    public void setCapital(double capital) {
+        this.capital = capital;
+    }
+
+    public void setLucro(double lucro) {
+        this.lucro = lucro;
+    }
+
+    public void setLucroTaxas(double lucroTaxas) {
+        this.lucroTaxas = lucroTaxas;
+    }
 }

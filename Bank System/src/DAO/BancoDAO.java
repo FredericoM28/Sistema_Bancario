@@ -9,7 +9,6 @@ public class BancoDAO {
     public BancoDAO(Connection conn) {
         this.conn = conn;
     }
-    
 
     // Inserir novo banco na tabela
     public void inserirBanco(Banco banco) throws SQLException {
@@ -41,19 +40,23 @@ public class BancoDAO {
         }
     }
 
-    // Obter banco pelo nome
+    // ✅ CORRIGIDO: Obter banco pelo nome
     public Banco getBancoPorNome(String nome) throws SQLException {
         String sql = "SELECT * FROM bancoCapital WHERE nome = ?";
         try (PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, nome);
             ResultSet rs = stmt.executeQuery();
             if (rs.next()) {
+                // ✅ CORREÇÃO: Criar banco e carregar TODOS os valores
                 Banco banco = new Banco(
-                        rs.getString("nome"),
-                        rs.getDouble("capital")
+                    rs.getString("nome"),
+                    rs.getDouble("capital")
                 );
-                // atualizar lucros
-                banco.registrarLucro(rs.getDouble("lucroTotal"));
+                
+                // ✅ CORREÇÃO: Usar setters em vez de registrarLucro
+                banco.setLucro(rs.getDouble("lucroTotal"));
+                banco.setLucroTaxas(rs.getDouble("lucroTaxas"));
+                
                 return banco;
             }
         }

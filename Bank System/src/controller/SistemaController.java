@@ -58,13 +58,17 @@ public class SistemaController {
         }
     }
 
-    public void registrarLucroTransacao(double taxa) {
-        banco.registrarLucroTaxa(taxa);
+    private void atualizarBancoNoBD() {
         try {
             bancoDAO.atualizarBanco(banco);
         } catch (SQLException e) {
-            e.printStackTrace();
+            System.err.println("Erro ao atualizar banco no BD: " + e.getMessage());
         }
+    }
+
+    public void registrarLucroTransacao(double taxa) {
+        banco.registrarLucroTaxa(taxa);
+        atualizarBancoNoBD();
     }
 
     // ===================== CLIENTE =====================
@@ -85,6 +89,16 @@ public class SistemaController {
         );
         clienteDAO.salvar(c);
         return c;
+    }
+
+    public Cliente buscarClientePorNUIT(int nuit) {
+        List<Cliente> clientes = clienteDAO.listarTodos();
+        for (Cliente c : clientes) {
+            if (c.getNuitCli() == nuit) {
+                return c;
+            }
+        }
+        return null;
     }
 
     public List<Cliente> listarClientes() {
@@ -176,11 +190,7 @@ public class SistemaController {
         
         // Atualiza banco
         banco.adicionarConta(conta);
-        try {
-            bancoDAO.atualizarBanco(banco);
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
+        atualizarBancoNoBD();
         
         return conta;
     }
@@ -222,7 +232,6 @@ public class SistemaController {
             conta.depositar(valor);
             contaDAO.atualizar(conta);
             
-            // Registra transação
             registrarTransacao(idConta, "Depósito", valor);
             return true;
         }
@@ -231,24 +240,22 @@ public class SistemaController {
 
     public boolean sacar(int idConta, double valor) {
         Conta conta = buscarContaPorId(idConta);
-        if (conta != null && valor > 0 && conta.getSaldo() >= valor) {
-            conta.sacar(valor);
-            contaDAO.atualizar(conta);
+        if (conta != null && valor > 0) {
+            double taxa = valor * 0.005; // 0.5%
+            double totalDebitar = valor + taxa;
             
-            // Aplica taxa
-            double taxa = valor * 0.005;
-            if (conta.getSaldo() >= taxa) {
-                conta.sacar(taxa);
+            if (conta.getSaldo() >= totalDebitar) {
+                // Debita valor + taxa
+                conta.sacar(totalDebitar);
+                contaDAO.atualizar(conta);
+                
+                // REGISTRA O LUCRO DA TAXA NO BANCO
                 banco.registrarLucroTaxa(taxa);
-                try {
-                    bancoDAO.atualizarBanco(banco);
-                } catch (SQLException e) {
-                    e.printStackTrace();
-                }
+                atualizarBancoNoBD();
+                
+                registrarTransacao(idConta, "Saque", valor);
+                return true;
             }
-            
-            registrarTransacao(idConta, "Saque", valor);
-            return true;
         }
         return false;
     }
@@ -263,11 +270,9 @@ public class SistemaController {
         origem.sacar(valor);
         destino.depositar(valor);
         
-        // Atualiza ambas as contas
         contaDAO.atualizar(origem);
         contaDAO.atualizar(destino);
         
-        // Registra transação
         registrarTransacao(idOrigem, "Transferência Interna", valor);
         
         return true;
@@ -275,24 +280,23 @@ public class SistemaController {
 
     public boolean transferirOutroBanco(int idOrigem, String nibDestino, double valor) {
         Conta origem = buscarContaPorId(idOrigem);
-        if (origem == null || valor <= 0 || origem.getSaldo() < valor) return false;
+        if (origem == null || valor <= 0) return false;
 
-        double taxa = valor * 0.01;
-        if (origem.getSaldo() < (valor + taxa)) return false;
+        double taxa = valor * 0.01; // 1%
+        double totalDebitar = valor + taxa;
+        
+        if (origem.getSaldo() >= totalDebitar) {
+            origem.sacar(totalDebitar);
+            contaDAO.atualizar(origem);
 
-        origem.sacar(valor);
-        origem.sacar(taxa);
-        contaDAO.atualizar(origem);
+            // REGISTRA O LUCRO DA TAXA NO BANCO
+            banco.registrarLucroTaxa(taxa);
+            atualizarBancoNoBD();
 
-        banco.registrarLucroTaxa(taxa);
-        try {
-            bancoDAO.atualizarBanco(banco);
-        } catch (SQLException e) {
-            e.printStackTrace();
+            registrarTransacao(idOrigem, "Transferência Externa", valor);
+            return true;
         }
-
-        registrarTransacao(idOrigem, "Transferência Externa", valor);
-        return true;
+        return false;
     }
 
     public boolean transferirCarteiraMovel(int idOrigem, String numeroTelefone, double valor) {
@@ -381,10 +385,20 @@ public class SistemaController {
         }
 
         if (conta != null && conta.getSaldo() >= valor) {
-            conta.sacar(valor);
-            contaDAO.atualizar(conta);
-            registrarTransacaoCompleta(conta.getIdConta(), "Saque Flexível", valor, referencia, entidade);
-            return true;
+            double taxa = valor * 0.005; // 0.5%
+            double totalDebitar = valor + taxa;
+            
+            if (conta.getSaldo() >= totalDebitar) {
+                conta.sacar(totalDebitar);
+                contaDAO.atualizar(conta);
+                
+                // REGISTRA O LUCRO DA TAXA NO BANCO
+                banco.registrarLucroTaxa(taxa);
+                atualizarBancoNoBD();
+                
+                registrarTransacaoCompleta(conta.getIdConta(), "Saque Flexível", valor, referencia, entidade);
+                return true;
+            }
         }
         return false;
     }
@@ -496,6 +510,14 @@ public class SistemaController {
     }
 
     public Conta abrirContaCliente(String nomeCli, int nuitcli, String endereco, int telefone, String email, String documento, Conta.TipoConta tipoConta) {
+        // Verifica se cliente já existe pelo NUIT
+        Cliente clienteExistente = buscarClientePorNUIT(nuitcli);
+        if (clienteExistente != null) {
+            // Se já existe, cria conta para este cliente
+            return criarConta(clienteExistente.getIdCliente(), tipoConta);
+        }
+
+        // Se não existe, cria novo cliente
         Cliente novoCliente = new Cliente(
             nomeCli,
             0, // ID gerado pelo banco
@@ -510,7 +532,6 @@ public class SistemaController {
         );
 
         clienteDAO.salvar(novoCliente);
-
         Conta novaConta = criarConta(novoCliente.getIdCliente(), tipoConta);
         return novaConta;
     }
@@ -554,34 +575,18 @@ public class SistemaController {
             else tipo = Transacoes.TipoTransacao.DEPOSITO;
         }
 
-        Transacoes.StatusTransacao status = Transacoes.StatusTransacao.CONCLUIDA;
-        LocalDateTime now = LocalDateTime.now();
-
-        // Aplica taxa se necessário
-        double taxa = valor * 0.01;
-        if (tipo != Transacoes.TipoTransacao.DEPOSITO && conta.getSaldo() >= taxa) {
-            conta.sacar(taxa);
-            contaDAO.atualizar(conta);
-            banco.registrarLucroTaxa(taxa);
-            try {
-                bancoDAO.atualizarBanco(banco);
-            } catch (SQLException e) {
-                e.printStackTrace();
-            }
-        }
-
         Transacoes t = new Transacoes(
             0, // ID gerado pelo banco
             tipo,
             valor,
-            now,
+            LocalDateTime.now(),
             conta.getIdConta(),
             null,
-            status,
+            Transacoes.StatusTransacao.CONCLUIDA,
             categoria,
             conta,
             categoria,
-            now,
+            LocalDateTime.now(),
             false
         );
 
@@ -675,6 +680,7 @@ public class SistemaController {
         analise.put("TotalContas", contaDAO.listarTodas().size());
         analise.put("CapitalBanco", banco.getCapital());
         analise.put("LucroTotal", banco.getLucro());
+        analise.put("LucroTaxas", banco.getLucroTaxas());
 
         return analise;
     }
@@ -685,16 +691,13 @@ public class SistemaController {
         Emprestimo emprestimo = emprestimoDAO.buscarPorId(idSolicitacao);
         if (emprestimo != null) {
             emprestimo.setStatus(Emprestimo.emprestimos.CONFIRMADA);
-            emprestimo.setDataAprovacao(LocalDate.now());
             emprestimoDAO.atualizar(emprestimo);
 
+            // CALCULA E REGISTRA LUCRO DO EMPRÉSTIMO
             double juros = emprestimo.getValorSolicitado() * emprestimo.getTaxaJuro();
             banco.registrarLucro(juros);
-            try {
-                bancoDAO.atualizarBanco(banco);
-            } catch (SQLException e) {
-                e.printStackTrace();
-            }
+            atualizarBancoNoBD();
+
             return true;
         }
         return false;
@@ -738,44 +741,30 @@ public class SistemaController {
     }
 
     public boolean sacarComTaxa(int idConta, double valor) {
-        Conta conta = buscarContaPorId(idConta);
-        if (conta != null && valor > 0 && conta.getSaldo() >= valor) {
-            double taxa = valor * 0.005;
-            conta.sacar(valor + taxa);
-            contaDAO.atualizar(conta);
-            banco.registrarLucroTaxa(taxa);
-            try {
-                bancoDAO.atualizarBanco(banco);
-            } catch (SQLException e) {
-                e.printStackTrace();
-            }
-
-            registrarTransacao(idConta, "Saque com Taxa", valor);
-            return true;
-        }
-        return false;
+        return sacar(idConta, valor); // Já inclui taxa automaticamente
     }
 
     public boolean transferirComTaxa(int idOrigem, int idDestino, double valor) {
         Conta origem = buscarContaPorId(idOrigem);
         Conta destino = buscarContaPorId(idDestino);
-        if (origem != null && destino != null && valor > 0 && origem.getSaldo() >= valor) {
-            double taxa = valor * 0.002;
-            origem.sacar(valor + taxa);
-            destino.depositar(valor);
+        if (origem != null && destino != null && valor > 0) {
+            double taxa = valor * 0.002; // 0.2%
+            double totalDebitar = valor + taxa;
             
-            contaDAO.atualizar(origem);
-            contaDAO.atualizar(destino);
-            
-            banco.registrarLucroTaxa(taxa);
-            try {
-                bancoDAO.atualizarBanco(banco);
-            } catch (SQLException e) {
-                e.printStackTrace();
-            }
+            if (origem.getSaldo() >= totalDebitar) {
+                origem.sacar(totalDebitar);
+                destino.depositar(valor);
+                
+                contaDAO.atualizar(origem);
+                contaDAO.atualizar(destino);
+                
+                // REGISTRA O LUCRO DA TAXA NO BANCO
+                banco.registrarLucroTaxa(taxa);
+                atualizarBancoNoBD();
 
-            registrarTransacao(idOrigem, "Transferência com Taxa", valor);
-            return true;
+                registrarTransacao(idOrigem, "Transferência com Taxa", valor);
+                return true;
+            }
         }
         return false;
     }
@@ -964,6 +953,7 @@ public class SistemaController {
         sb.append("Saldo Total no Banco: ").append(String.format("%.2f", calcularSaldoTotal())).append(" MZN\n");
         sb.append("Total de Depósitos: ").append(String.format("%.2f", getTotalDepositos())).append(" MZN\n");
         sb.append("Total de Saques: ").append(String.format("%.2f", getTotalSaques())).append(" MZN\n");
+        sb.append("Lucro de Taxas: ").append(String.format("%.2f", banco.getLucroTaxas())).append(" MZN\n");
         sb.append("\n-----------------------------\n");
         sb.append("Data: ").append(java.time.LocalDate.now()).append("\n");
         return sb.toString();
@@ -1017,6 +1007,29 @@ public class SistemaController {
         return contaDAO.buscarPorNumero(String.valueOf(numeroConta));
     }
 
+    // ===================== GETTERS PARA BANCO =====================
+
+    public double getLucroTotal() {
+        return banco.getLucro();
+    }
+
+    public double getLucroTaxas() {
+        return banco.getLucroTaxas();
+    }
+
+    public double getCapitalBanco() {
+        return banco.getCapital();
+    }
+
+    public Map<String, Double> getResumoFinanceiro() {
+        Map<String, Double> resumo = new HashMap<>();
+        resumo.put("Capital", banco.getCapital());
+        resumo.put("Lucro Total", banco.getLucro());
+        resumo.put("Lucro de Taxas", banco.getLucroTaxas());
+        resumo.put("Lucro de Empréstimos", banco.getLucro() - banco.getLucroTaxas());
+        return resumo;
+    }
+
     // ===================== GERADORES =====================
 
     private int gerarNumeroConta() {
@@ -1032,8 +1045,13 @@ public class SistemaController {
     }
 
     public static void main(String[] args) {
-        // Teste básico do sistema
         SistemaController sistema = new SistemaController();
         System.out.println("Sistema Controller inicializado com DAOs");
+        
+        // Teste básico
+        System.out.println("Total de clientes: " + sistema.listarClientes().size());
+        System.out.println("Total de contas: " + sistema.listarContas().size());
+        System.out.println("Capital do banco: " + sistema.getCapitalBanco());
+        System.out.println("Lucro de taxas: " + sistema.getLucroTaxas());
     }
 }
