@@ -861,11 +861,23 @@ public class TelaCliente extends javax.swing.JPanel {
             return;
         }
 
+        // NOVO: 1. Validação do número de celular: deve ter 9 caracteres
+        if (celular.length() != 9) {
+            JOptionPane.showMessageDialog(this, "O número de celular deve ter exatamente 9 dígitos!", "Erro de Validação", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
         try {
             double valor = Double.parseDouble(valorStr);
 
             if (contaCliente == null) {
                 JOptionPane.showMessageDialog(this, "Conta não encontrada!", "Erro", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+
+            // NOVO: 2. Validação do valor mínimo da transferência: deve ser >= 100 MZN
+            if (valor < 100.0) {
+                JOptionPane.showMessageDialog(this, "O valor mínimo para transferência para celular é 100 MZN!", "Erro de Validação", JOptionPane.ERROR_MESSAGE);
                 return;
             }
 
@@ -1053,9 +1065,10 @@ public class TelaCliente extends javax.swing.JPanel {
         botao.setPreferredSize(new Dimension(250, 40));
         botao.setFocusPainted(false);
         botao.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(cor.darker(), 2),
+                cor.darker() != null ? BorderFactory.createLineBorder(cor.darker(), 2) : BorderFactory.createLineBorder(cor, 2),
                 BorderFactory.createEmptyBorder(8, 20, 8, 20)
         ));
+
 
         botao.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseEntered(java.awt.event.MouseEvent evt) {
