@@ -1,1381 +1,958 @@
 package view;
 
 import javax.swing.*;
+import javax.swing.border.*;
+import javax.swing.table.*;
 import java.awt.*;
+import java.awt.event.*;
+import java.text.DecimalFormat;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import controller.SistemaController;
 import model.Cliente;
 import model.Conta;
 import model.Transacoes;
 import java.util.List;
-// NOVOS IMPORTS para a funcionalidade de download
-import java.io.PrintWriter;
-import java.io.File;
-import java.time.LocalDate;
-import javax.swing.table.DefaultTableModel;
-// FIM NOVOS IMPORTS
 
-/**
- *
- * @author Dell
- */
-public class TelaCliente extends javax.swing.JPanel {
+public class TelaCliente extends JFrame {
 
+    // Cores do tema - Agora variáveis para poder mudar
+    private Color PRIMARY_COLOR = new Color(0, 0, 139); // Azul padrão
+    private static final Color SECONDARY_COLOR = new Color(236, 236, 240);
+    private static final Color BACKGROUND_COLOR = new Color(255, 255, 255);
+    private static final Color CARD_COLOR = new Color(255, 255, 255);
+    private static final Color MUTED_COLOR = new Color(113, 113, 130);
+    private static final Color SUCCESS_COLOR = new Color(34, 197, 94);
+    private static final Color ERROR_COLOR = new Color(239, 68, 68);
+    private static final Color BORDER_COLOR = new Color(226, 232, 240);
+
+    // Componentes principais
+    private JPanel sidebarPanel;
+    private JPanel contentPanel;
+    private CardLayout contentCardLayout;
+    private JLabel titleLabel;
+    private JLabel balanceLabel;
+    private boolean showBalance = true;
+
+    // Sistema real
     private SistemaController sistemaController;
-    private Cliente clienteLogado; // Cliente atualmente logado
-    private Conta contaCliente; // Conta do cliente logado
+    private Cliente clienteLogado;
+    private Conta contaCliente;
 
-    /**
-     * Creates new form TelaCliente
-     */
-    public TelaCliente() {
-        this.sistemaController = new SistemaController();
-        // SIMULAÇÃO: Vamos usar o primeiro cliente e conta disponíveis para teste
-        inicializarClienteTeste();
+    // Formatadores
+    private final DecimalFormat currencyFormat = new DecimalFormat("#,##0.00");
+    private final SimpleDateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy HH:mm");
 
-        initComponents();
+    public TelaCliente(SistemaController sistema, Cliente cliente, Conta conta) {
+        this.sistemaController = sistema;
+        this.clienteLogado = cliente;
+        this.contaCliente = conta;
 
-        // ADICIONE ESTA LINHA - Muda o layout do jPanel1
-        jPanel1.setLayout(new java.awt.BorderLayout());
 
-        configurarListeners();
-        mostrarTelaInicial();
+
+        initializeFrame();
+        createSidebar();
+        createContentPanel();
+        setupLayout();
+        showDashboard();
+
+        // Aplicar tema baseado no tipo de conta
+        aplicarTemaPorTipoConta();
     }
 
-    // =================================================================
-    // MÉTODO CORRIGIDO E ROBUSTO (Resolve NullPointer e Duplicate Entry)
-    // =================================================================
-    private void inicializarClienteTeste() {
-        final long NUIT_TESTE = 123456789; // NUIT fixo do cliente de teste
+    private void initializeFrame() {
+        setTitle("Banco Nexus - Painel do Cliente");
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setSize(1400, 900);
+        setLocationRelativeTo(null);
+        setBackground(BACKGROUND_COLOR);
+    }
 
-        // 1. Tenta carregar clientes e contas
-        List<Cliente> clientes = sistemaController.listarClientes();
-        List<Conta> contas = sistemaController.listarContas();
+    private void aplicarTemaPorTipoConta() {
+        if (contaCliente == null) return;
 
-        // 2. Tentar encontrar o cliente de teste existente pelo NUIT fixo
-        for (Cliente cliente : clientes) {
-            if (cliente.getNuitCli() == NUIT_TESTE) {
-                this.clienteLogado = cliente;
-                System.out.println("Cliente de teste encontrado: " + cliente.getNomeCli());
+        switch (contaCliente.getTipoConta()) {
+            case POUPANCA:
+                aplicarTemaPoupanca();
                 break;
-            }
-        }
-
-        // 3. Se o cliente de teste não foi encontrado, tenta criar (pode falhar por duplicidade)
-        if (this.clienteLogado == null) {
-            try {
-                System.out.println("Cliente de teste não encontrado no cache. Tentando criar...");
-                this.clienteLogado = sistemaController.criarCliente(
-                        "João Silva (Teste)", Math.toIntExact(NUIT_TESTE), "Maputo", 841234567,
-                        "joao@email.com", java.time.LocalDate.of(1990, 5, 15),
-                        "BI123456", "1234"
-                );
-                System.out.println("Cliente de teste criado com sucesso.");
-            } catch (RuntimeException e) {
-                // Captura o erro específico de duplicação: Duplicate entry '123456789'
-                if (e.getMessage() != null && e.getMessage().contains("Duplicate entry")) {
-                    System.err.println("ERRO: Cliente de teste já existe no DB. Falha ao carregar na busca inicial.");
-
-                    // Como a criação falhou, e não temos um método buscarClientePorNuit,
-                    // a única maneira de prosseguir é garantindo que as próximas buscas funcionem
-                    // ou exigindo que o usuário reinicie/limpe o DB se a busca inicial falhar.
-
-                    // Para evitar o crash, vamos lançar a exceção. Se o problema persistir
-                    // APÓS esta correção, significa que a busca (listarClientes) está incompleta.
-                    throw e;
-                } else {
-                    throw e; // Lança outros erros
-                }
-            }
-        }
-
-        // 4. Se o clienteLogado está definido, procura a conta dele
-        if (this.clienteLogado != null) {
-            // Tenta encontrar a conta (pode ter sido criada em uma sessão anterior)
-            for (Conta conta : contas) {
-                // CORREÇÃO: Verifica se getClienteId() não retorna null (Resolve erro anterior)
-                if (conta.getClienteId() != null && conta.getClienteId().getIdCliente() == clienteLogado.getIdCliente()) {
-                    this.contaCliente = conta;
-                    break;
-                }
-            }
-
-            // 5. Se a conta não foi encontrada (but o cliente sim), cria a conta
-            if (this.contaCliente == null) {
-                System.out.println("Conta do cliente de teste faltando. Criando conta...");
-                this.contaCliente = sistemaController.criarConta(this.clienteLogado.getIdCliente(), Conta.TipoConta.CORRENTE);
-                System.out.println("Conta de teste criada/garantida com sucesso.");
-            }
-        }
-
-        // Se ainda for null, lança erro para evitar quebras futuras.
-        if (this.clienteLogado == null || this.contaCliente == null) {
-            throw new IllegalStateException("Falha crítica ao inicializar cliente de teste. Cliente ou Conta é nulo após todas as tentativas.");
+            case CORRENTE:
+                aplicarTemaCorrente();
+                break;
+            case DEBITO:
+                aplicarTemaDebito();
+                break;
         }
     }
-    // =================================================================
-    // FIM MÉTODO CORRIGIDO
-    // =================================================================
 
-    private void configurarListeners() {
-        jButton1.addActionListener(e -> mostrarConsultarSaldo());
-        // NOVO: Adiciona a mensagem para o botão Depositar
-        jButton2.addActionListener(e -> mostrarMensagemEmBreve("Depositar"));
-        jButton4.addActionListener(e -> mostrarSaque());
-        jButton3.addActionListener(e -> mostrarTransferir());
-        jButton7.addActionListener(e -> mostrarTransferirCelular());
-        jButton8.addActionListener(e -> mostrarPagamentos());
-        jButton5.addActionListener(e -> mostrarAlterarSenha());
-        jButton9.addActionListener(e -> mostrarVerPerfil());
-        jButton10.addActionListener(e -> mostrarHistorico()); // NOVO BOTÃO
-        jButton6.addActionListener(e -> sair());
+    private void aplicarTemaPoupanca() {
+        PRIMARY_COLOR = new Color(0, 100, 0); // Verde escuro
+        atualizarCoresTema();
     }
 
-    // =================================================================
-    // NOVO MÉTODO: mostrarMensagemEmBreve()
-    // =================================================================
-    private void mostrarMensagemEmBreve(String funcionalidade) {
-        jPanel1.removeAll();
-
-        JPanel panelMsg = new JPanel(new GridBagLayout());
-        panelMsg.setBackground(Color.WHITE);
-        panelMsg.setBorder(BorderFactory.createEmptyBorder(50, 50, 50, 50));
-
-        // Ícone de Aviso
-        JLabel lblIcon = new JLabel("🚧");
-        lblIcon.setFont(new Font("Segoe UI", Font.PLAIN, 60));
-
-        // Título da Funcionalidade
-        JLabel lblTitulo = new JLabel(funcionalidade.toUpperCase(), JLabel.CENTER);
-        lblTitulo.setFont(new Font("Segoe UI", Font.BOLD, 28));
-        lblTitulo.setForeground(new Color(255, 140, 0)); // Laranja
-        lblTitulo.setBorder(BorderFactory.createEmptyBorder(10, 0, 10, 0));
-
-        // Mensagem
-        JTextArea txtMensagem = new JTextArea(
-                "A funcionalidade de " + funcionalidade.toLowerCase() + " está em desenvolvimento. " +
-                        "Será implementada em breve para sua conveniência.\n\n" +
-                        "Agradecemos a sua paciência!"
-        );
-        txtMensagem.setFont(new Font("Segoe UI", Font.PLAIN, 16));
-        txtMensagem.setForeground(new Color(80, 80, 80));
-        txtMensagem.setBackground(Color.WHITE);
-        txtMensagem.setEditable(false);
-        txtMensagem.setLineWrap(true);
-        txtMensagem.setWrapStyleWord(true);
-        txtMensagem.setAlignmentX(JTextArea.CENTER_ALIGNMENT);
-
-
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.gridx = 0;
-        gbc.gridy = 0;
-        gbc.insets = new Insets(10, 10, 10, 10);
-
-        panelMsg.add(lblIcon, gbc);
-
-        gbc.gridy = 1;
-        panelMsg.add(lblTitulo, gbc);
-
-        gbc.gridy = 2;
-        gbc.fill = GridBagConstraints.HORIZONTAL;
-        panelMsg.add(txtMensagem, gbc);
-
-        jPanel1.add(panelMsg, BorderLayout.CENTER);
-        jPanel1.revalidate();
-        jPanel1.repaint();
+    private void aplicarTemaCorrente() {
+        PRIMARY_COLOR = new Color(0, 0, 139); // Azul escuro
+        atualizarCoresTema();
     }
-    // =================================================================
-    // FIM NOVO MÉTODO
-    // =================================================================
 
+    private void aplicarTemaDebito() {
+        PRIMARY_COLOR = new Color(75, 0, 130); // Roxo escuro
+        atualizarCoresTema();
+    }
 
-    // =================================================================
-    // NOVO MÉTODO: mostrarHistorico() - Exibe a lista de transações e o botão de download
-    // =================================================================
-    private void mostrarHistorico() {
-        jPanel1.removeAll();
+    private void atualizarCoresTema() {
+        if (sidebarPanel != null) {
+            sidebarPanel.setBackground(PRIMARY_COLOR);
+        }
+    }
 
-        JPanel panelHistorico = new JPanel(new BorderLayout());
-        panelHistorico.setBackground(Color.WHITE);
-        panelHistorico.setBorder(BorderFactory.createEmptyBorder(20, 30, 20, 30));
+    private void createSidebar() {
+        sidebarPanel = new JPanel();
+        sidebarPanel.setLayout(new BoxLayout(sidebarPanel, BoxLayout.Y_AXIS));
+        sidebarPanel.setBackground(PRIMARY_COLOR);
+        sidebarPanel.setBorder(new MatteBorder(0, 0, 0, 1, BORDER_COLOR));
+        sidebarPanel.setPreferredSize(new Dimension(280, 0));
 
-        // --- Header com Título e Botão ---
-        JPanel headerPanel = new JPanel(new BorderLayout());
-        headerPanel.setBackground(Color.WHITE);
-        headerPanel.setBorder(BorderFactory.createEmptyBorder(0, 0, 15, 0));
+        // Header da sidebar
+        JPanel headerPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        headerPanel.setBackground(PRIMARY_COLOR);
+        headerPanel.setBorder(new MatteBorder(0, 0, 1, 0, Color.WHITE));
 
-        JLabel titulo = new JLabel("HISTÓRICO DE TRANSAÇÕES", JLabel.CENTER);
-        titulo.setFont(new Font("Segoe UI", Font.BOLD, 24));
-        titulo.setForeground(new Color(0, 0, 139));
+        String nomeCliente = (clienteLogado != null) ? clienteLogado.getNomeCli() : "Cliente";
+        String tipoConta = getTituloConta();
 
-        // Novo Botão "Baixar Relatório de Transações"
-        JButton btnBaixarCompleto = criarBotaoDownload("⬇️ BAIXAR RELATÓRIO DE TRANSAÇÕES");
-        btnBaixarCompleto.addActionListener(e -> baixarRelatorioTransacoes());
+        JLabel logoLabel = new JLabel("🏦 Nexus Bank");
+        logoLabel.setFont(new Font("Arial", Font.BOLD, 18));
+        logoLabel.setForeground(Color.WHITE);
+        headerPanel.add(logoLabel);
 
-        JPanel tituloContainer = new JPanel(new FlowLayout(FlowLayout.CENTER));
-        tituloContainer.setBackground(Color.WHITE);
-        tituloContainer.add(titulo);
+        JLabel subtitleLabel = new JLabel(nomeCliente);
+        subtitleLabel.setFont(new Font("Arial", Font.PLAIN, 12));
+        subtitleLabel.setForeground(Color.WHITE);
+        headerPanel.add(subtitleLabel);
 
-        JPanel downloadPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-        downloadPanel.setBackground(Color.WHITE);
-        downloadPanel.add(btnBaixarCompleto);
+        sidebarPanel.add(headerPanel);
 
-        headerPanel.add(tituloContainer, BorderLayout.CENTER);
-        headerPanel.add(downloadPanel, BorderLayout.EAST);
-
-        panelHistorico.add(headerPanel, BorderLayout.NORTH);
-        // --- FIM Header ---
-
-        // Tabela de Transações
-        String[] colunas = {"Data", "Tipo", "Valor (MT)", "Descrição"};
-        DefaultTableModel model = new DefaultTableModel(colunas, 0) {
-            @Override
-            public boolean isCellEditable(int row, int column) {
-                return false;
-            }
+        // Menu items
+        String[] menuItems = {
+                "📊 Dashboard",
+                "👤 Perfil",
+                "📋 Histórico",
+                "💸 Transferir",
+                "💰 Saques",
+                "🧾 Pagamentos",
+                "🔔 Notificações",
+                "⚙️ Configurações"
         };
 
-        JTable tabela = new JTable(model);
-        tabela.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-        tabela.setRowHeight(30);
+        String[] actions = {
+                "dashboard", "profile", "transactions", "transfer", "withdraw",
+                "payments", "notifications", "settings"
+        };
 
-        // Preencher tabela com dados reais do cliente
+        JPanel menuPanel = new JPanel();
+        menuPanel.setLayout(new BoxLayout(menuPanel, BoxLayout.Y_AXIS));
+        menuPanel.setBackground(PRIMARY_COLOR);
+        menuPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+
+        for (int i = 0; i < menuItems.length; i++) {
+            JButton menuButton = createMenuButton(menuItems[i], actions[i]);
+            menuPanel.add(menuButton);
+            menuPanel.add(Box.createRigidArea(new Dimension(0, 5)));
+        }
+
+        sidebarPanel.add(menuPanel);
+
+        // User info no footer
+        sidebarPanel.add(Box.createVerticalGlue());
+
+        JPanel userPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        userPanel.setBackground(PRIMARY_COLOR);
+        userPanel.setBorder(new MatteBorder(1, 0, 0, 0, Color.WHITE));
+
+        JLabel userIcon = new JLabel(getIconePorTipoConta());
+        userIcon.setFont(new Font("Arial", Font.PLAIN, 20));
+        userIcon.setForeground(Color.WHITE);
+        userPanel.add(userIcon);
+
+        JPanel userInfoPanel = new JPanel();
+        userInfoPanel.setLayout(new BoxLayout(userInfoPanel, BoxLayout.Y_AXIS));
+        userInfoPanel.setBackground(PRIMARY_COLOR);
+
+        JLabel userName = new JLabel(tipoConta);
+        userName.setFont(new Font("Arial", Font.BOLD, 12));
+        userName.setForeground(Color.WHITE);
+        userInfoPanel.add(userName);
+
+        JLabel userType = new JLabel(getStatusConta());
+        userType.setFont(new Font("Arial", Font.PLAIN, 10));
+        userType.setForeground(Color.WHITE);
+        userInfoPanel.add(userType);
+
+        userPanel.add(userInfoPanel);
+        sidebarPanel.add(userPanel);
+    }
+
+    private String getIconePorTipoConta() {
+        if (contaCliente == null) return "💳";
+
+        switch (contaCliente.getTipoConta()) {
+            case POUPANCA: return "🐷";
+            case CORRENTE: return "🏦";
+            case DEBITO: return "💳";
+            default: return "💳";
+        }
+    }
+
+    private String getTituloConta() {
+        if (contaCliente == null) return "Minha Conta";
+
+        switch (contaCliente.getTipoConta()) {
+            case POUPANCA: return "Conta Poupança";
+            case CORRENTE: return "Conta Corrente";
+            case DEBITO: return "Cartão Débito";
+            default: return "Minha Conta";
+        }
+    }
+
+    private String getStatusConta() {
+        if (contaCliente == null) return "N/A";
+        return contaCliente.getStatus().toString();
+    }
+
+    private JButton createMenuButton(String text, String action) {
+        JButton button = new JButton(text);
+        button.setAlignmentX(Component.LEFT_ALIGNMENT);
+        button.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
+        button.setPreferredSize(new Dimension(250, 40));
+        button.setHorizontalAlignment(SwingConstants.LEFT);
+        button.setBackground(Color.WHITE);
+        button.setForeground(PRIMARY_COLOR);
+        button.setBorder(BorderFactory.createEmptyBorder(8, 12, 8, 12));
+        button.setFocusPainted(false);
+        button.setFont(new Font("Arial", Font.BOLD, 12));
+
+        // Hover effect
+        button.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseEntered(MouseEvent e) {
+                button.setBackground(SECONDARY_COLOR);
+            }
+
+            @Override
+            public void mouseExited(MouseEvent e) {
+                button.setBackground(Color.WHITE);
+            }
+        });
+
+        button.addActionListener(e -> switchContent(action));
+
+        return button;
+    }
+
+    private void createContentPanel() {
+        contentCardLayout = new CardLayout();
+        contentPanel = new JPanel(contentCardLayout);
+        contentPanel.setBackground(BACKGROUND_COLOR);
+
+        // Criar todas as telas
+        contentPanel.add(createDashboardPanel(), "dashboard");
+        contentPanel.add(createProfilePanel(), "profile");
+        contentPanel.add(createTransactionsPanel(), "transactions");
+        contentPanel.add(createTransferPanel(), "transfer");
+        contentPanel.add(createWithdrawPanel(), "withdraw");
+        contentPanel.add(createPaymentsPanel(), "payments");
+        contentPanel.add(createNotificationsPanel(), "notifications");
+        contentPanel.add(createSettingsPanel(), "settings");
+    }
+
+    private JPanel createDashboardPanel() {
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.setBackground(BACKGROUND_COLOR);
+        panel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+
+        // Header
+        JPanel headerPanel = new JPanel(new BorderLayout());
+        headerPanel.setBackground(BACKGROUND_COLOR);
+
+        JPanel titlePanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        titlePanel.setBackground(BACKGROUND_COLOR);
+
+        String nomeCliente = (clienteLogado != null) ? clienteLogado.getNomeCli() : "Cliente";
+        JLabel titleLabel = new JLabel("Dashboard - " + getTituloConta());
+        titleLabel.setFont(new Font("Arial", Font.BOLD, 24));
+        titleLabel.setForeground(PRIMARY_COLOR);
+        titlePanel.add(titleLabel);
+
+        JLabel subtitleLabel = new JLabel("Bem-vindo de volta, " + nomeCliente);
+        subtitleLabel.setFont(new Font("Arial", Font.PLAIN, 14));
+        subtitleLabel.setForeground(MUTED_COLOR);
+        titlePanel.add(subtitleLabel);
+
+        headerPanel.add(titlePanel, BorderLayout.WEST);
+
+        JButton updateButton = new JButton("Atualizar Dados");
+        updateButton.setBackground(CARD_COLOR);
+        updateButton.setBorder(new LineBorder(BORDER_COLOR));
+        updateButton.addActionListener(e -> atualizarDashboard());
+        headerPanel.add(updateButton, BorderLayout.EAST);
+
+        panel.add(headerPanel, BorderLayout.NORTH);
+
+        // Balance Cards com dados reais
+        JPanel balancePanel = new JPanel(new GridLayout(1, 4, 15, 15));
+        balancePanel.setBackground(BACKGROUND_COLOR);
+        balancePanel.setBorder(BorderFactory.createEmptyBorder(20, 0, 20, 0));
+
+        double saldo = (contaCliente != null) ? contaCliente.getSaldo() : 0.0;
+        double limiteSaque = getLimiteSaqueDiario();
+
+        balancePanel.add(createBalanceCard("Saldo Disponível",
+                String.format("%.2f MZN", saldo), "Saldo atual", SUCCESS_COLOR, true));
+
+        balancePanel.add(createBalanceCard("Limite Saque Diário",
+                String.format("%.2f MZN", limiteSaque), "Máximo por dia", MUTED_COLOR, false));
+
+        balancePanel.add(createBalanceCard("Taxa de Manutenção",
+                getTaxaManutencao(), "Próximo vencimento", MUTED_COLOR, false));
+
+        balancePanel.add(createBalanceCard("Status da Conta",
+                getStatusConta(), getCaracteristicaExtra(), SUCCESS_COLOR, false));
+
+        panel.add(balancePanel, BorderLayout.CENTER);
+
+        // Quick Actions
+        panel.add(createQuickActionsPanel(), BorderLayout.SOUTH);
+
+        return panel;
+    }
+
+    private double getLimiteSaqueDiario() {
+        if (contaCliente == null) return 0;
+
+        switch (contaCliente.getTipoConta()) {
+            case POUPANCA: return 10000.0;
+            case CORRENTE: return 50000.0;
+            case DEBITO: return 20000.0;
+            default: return 0;
+        }
+    }
+
+    private String getTaxaManutencao() {
+        if (contaCliente == null) return "N/A";
+
+        switch (contaCliente.getTipoConta()) {
+            case POUPANCA: return "Isenta";
+            case CORRENTE: return "100 MZN/mês";
+            case DEBITO: return "50 MZN/mês";
+            default: return "N/A";
+        }
+    }
+
+    private String getCaracteristicaExtra() {
+        if (contaCliente == null) return "";
+
+        switch (contaCliente.getTipoConta()) {
+            case POUPANCA: return "Acumulação";
+            case CORRENTE: return "Empréstimos ✅";
+            case DEBITO: return "Uso Diário";
+            default: return "";
+        }
+    }
+
+    private void atualizarDashboard() {
+        // Atualizar dados do dashboard
+        JOptionPane.showMessageDialog(this, "Dados atualizados com sucesso!", "Atualização",
+                JOptionPane.INFORMATION_MESSAGE);
+    }
+
+    private JPanel createQuickActionsPanel() {
+        JPanel actionsPanel = new JPanel(new BorderLayout());
+        actionsPanel.setBackground(BACKGROUND_COLOR);
+        actionsPanel.setBorder(createCardBorder());
+
+        JLabel actionsTitle = new JLabel("Ações Rápidas");
+        actionsTitle.setFont(new Font("Arial", Font.BOLD, 16));
+        actionsTitle.setBorder(BorderFactory.createEmptyBorder(15, 15, 10, 15));
+        actionsPanel.add(actionsTitle, BorderLayout.NORTH);
+
+        JPanel buttonsPanel = new JPanel(new GridLayout(1, 4, 10, 10));
+        buttonsPanel.setBackground(CARD_COLOR);
+        buttonsPanel.setBorder(BorderFactory.createEmptyBorder(0, 15, 15, 15));
+
+        // Ações comuns a todos
+        buttonsPanel.add(createActionButton("💸", "Transferir", e -> switchContent("transfer")));
+        buttonsPanel.add(createActionButton("💰", "Sacar", e -> switchContent("withdraw")));
+
+        // Ações específicas por tipo de conta
+        if (contaCliente != null && contaCliente.getTipoConta() == Conta.TipoConta.CORRENTE) {
+            buttonsPanel.add(createActionButton("📈", "Empréstimos", e -> mostrarEmprestimos()));
+        } else {
+            buttonsPanel.add(createActionButton("🧾", "Pagamentos", e -> switchContent("payments")));
+        }
+
+        buttonsPanel.add(createActionButton("📋", "Extrato", e -> switchContent("transactions")));
+
+        actionsPanel.add(buttonsPanel, BorderLayout.CENTER);
+        return actionsPanel;
+    }
+
+    private void mostrarEmprestimos() {
+        JOptionPane.showMessageDialog(this,
+                "Funcionalidade de empréstimos disponível apenas para Conta Corrente!\n\n" +
+                        "Visite uma agência para mais informações.",
+                "Empréstimos",
+                JOptionPane.INFORMATION_MESSAGE);
+    }
+
+    private JButton createActionButton(String icon, String text, ActionListener listener) {
+        JButton button = new JButton();
+        button.setLayout(new BorderLayout());
+        button.setBackground(CARD_COLOR);
+        button.setBorder(new LineBorder(BORDER_COLOR));
+        button.setPreferredSize(new Dimension(120, 80));
+        button.setFocusPainted(false);
+        button.addActionListener(listener);
+
+        JLabel iconLabel = new JLabel(icon, SwingConstants.CENTER);
+        iconLabel.setFont(new Font("Arial", Font.PLAIN, 24));
+        button.add(iconLabel, BorderLayout.CENTER);
+
+        JLabel textLabel = new JLabel(text, SwingConstants.CENTER);
+        textLabel.setFont(new Font("Arial", Font.PLAIN, 12));
+        button.add(textLabel, BorderLayout.SOUTH);
+
+        return button;
+    }
+
+    private JPanel createBalanceCard(String title, String amount, String subtitle, Color subtitleColor, boolean hasToggle) {
+        JPanel card = new JPanel(new BorderLayout());
+        card.setBackground(CARD_COLOR);
+        card.setBorder(createCardBorder());
+
+        JPanel headerPanel = new JPanel(new BorderLayout());
+        headerPanel.setBackground(CARD_COLOR);
+
+        JLabel titleLabel = new JLabel(title);
+        titleLabel.setFont(new Font("Arial", Font.PLAIN, 12));
+        titleLabel.setForeground(MUTED_COLOR);
+        headerPanel.add(titleLabel, BorderLayout.WEST);
+
+        if (hasToggle) {
+            JButton toggleButton = new JButton(showBalance ? "👁️" : "🔒");
+            toggleButton.setFont(new Font("Arial", Font.PLAIN, 12));
+            toggleButton.setBorder(null);
+            toggleButton.setBackground(CARD_COLOR);
+            toggleButton.setFocusPainted(false);
+            toggleButton.addActionListener(e -> {
+                showBalance = !showBalance;
+                toggleButton.setText(showBalance ? "👁️" : "🔒");
+            });
+            headerPanel.add(toggleButton, BorderLayout.EAST);
+        }
+
+        card.add(headerPanel, BorderLayout.NORTH);
+
+        JPanel contentPanel = new JPanel();
+        contentPanel.setLayout(new BoxLayout(contentPanel, BoxLayout.Y_AXIS));
+        contentPanel.setBackground(CARD_COLOR);
+        contentPanel.setBorder(BorderFactory.createEmptyBorder(10, 0, 0, 0));
+
+        JLabel amountLabel = new JLabel(showBalance ? amount : "••••••");
+        amountLabel.setFont(new Font("Arial", Font.BOLD, 18));
+        amountLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        contentPanel.add(amountLabel);
+
+        JLabel subtitleLabel = new JLabel(subtitle);
+        subtitleLabel.setFont(new Font("Arial", Font.PLAIN, 10));
+        subtitleLabel.setForeground(subtitleColor);
+        subtitleLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        contentPanel.add(subtitleLabel);
+
+        card.add(contentPanel, BorderLayout.CENTER);
+
+        return card;
+    }
+
+    private JPanel createProfilePanel() {
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.setBackground(BACKGROUND_COLOR);
+        panel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+
+        // Header
+        JPanel headerPanel = new JPanel(new BorderLayout());
+        headerPanel.setBackground(BACKGROUND_COLOR);
+
+        JLabel titleLabel = new JLabel("Meu Perfil");
+        titleLabel.setFont(new Font("Arial", Font.BOLD, 24));
+        titleLabel.setForeground(PRIMARY_COLOR);
+        headerPanel.add(titleLabel, BorderLayout.WEST);
+
+        panel.add(headerPanel, BorderLayout.NORTH);
+
+        // Content
+        JPanel contentPanel = new JPanel(new GridLayout(2, 2, 20, 20));
+        contentPanel.setBackground(BACKGROUND_COLOR);
+        contentPanel.setBorder(BorderFactory.createEmptyBorder(20, 0, 0, 0));
+
+        // Photo Card
+        contentPanel.add(createProfilePhotoCard());
+
+        // Personal Info Card
+        contentPanel.add(createPersonalInfoCard());
+
+        // Account Details Card
+        contentPanel.add(createAccountDetailsCard());
+
+        // Security Card
+        contentPanel.add(createSecurityCard());
+
+        panel.add(contentPanel, BorderLayout.CENTER);
+
+        return panel;
+    }
+
+    private JPanel createProfilePhotoCard() {
+        JPanel card = new JPanel(new BorderLayout());
+        card.setBackground(CARD_COLOR);
+        card.setBorder(createCardBorder());
+
+        JLabel titleLabel = new JLabel("Foto de Perfil");
+        titleLabel.setFont(new Font("Arial", Font.BOLD, 14));
+        titleLabel.setBorder(BorderFactory.createEmptyBorder(15, 15, 10, 15));
+        card.add(titleLabel, BorderLayout.NORTH);
+
+        JPanel photoPanel = new JPanel();
+        photoPanel.setLayout(new BoxLayout(photoPanel, BoxLayout.Y_AXIS));
+        photoPanel.setBackground(CARD_COLOR);
+        photoPanel.setBorder(BorderFactory.createEmptyBorder(10, 15, 15, 15));
+
+        // Avatar placeholder
+        JLabel avatar = new JLabel("👤", SwingConstants.CENTER);
+        avatar.setFont(new Font("Arial", Font.PLAIN, 48));
+        avatar.setAlignmentX(Component.CENTER_ALIGNMENT);
+        photoPanel.add(avatar);
+
+        photoPanel.add(Box.createRigidArea(new Dimension(0, 10)));
+
+        String nomeCliente = (clienteLogado != null) ? clienteLogado.getNomeCli() : "Cliente";
+        JLabel nameLabel = new JLabel(nomeCliente);
+        nameLabel.setFont(new Font("Arial", Font.BOLD, 16));
+        nameLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        photoPanel.add(nameLabel);
+
+        JLabel typeLabel = new JLabel(getTituloConta());
+        typeLabel.setFont(new Font("Arial", Font.PLAIN, 12));
+        typeLabel.setForeground(MUTED_COLOR);
+        typeLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        photoPanel.add(typeLabel);
+
+        photoPanel.add(Box.createRigidArea(new Dimension(0, 10)));
+
+        JLabel badgeLabel = new JLabel("✅ Verificado");
+        badgeLabel.setFont(new Font("Arial", Font.PLAIN, 10));
+        badgeLabel.setForeground(SUCCESS_COLOR);
+        badgeLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        photoPanel.add(badgeLabel);
+
+        card.add(photoPanel, BorderLayout.CENTER);
+
+        return card;
+    }
+
+    private JPanel createPersonalInfoCard() {
+        JPanel card = new JPanel(new BorderLayout());
+        card.setBackground(CARD_COLOR);
+        card.setBorder(createCardBorder());
+
+        JLabel titleLabel = new JLabel("Informações Pessoais");
+        titleLabel.setFont(new Font("Arial", Font.BOLD, 14));
+        titleLabel.setBorder(BorderFactory.createEmptyBorder(15, 15, 10, 15));
+        card.add(titleLabel, BorderLayout.NORTH);
+
+        JPanel formPanel = new JPanel(new GridLayout(4, 2, 10, 10));
+        formPanel.setBackground(CARD_COLOR);
+        formPanel.setBorder(BorderFactory.createEmptyBorder(0, 15, 15, 15));
+
+        String nome = (clienteLogado != null) ? clienteLogado.getNomeCli() : "N/A";
+        String email = (clienteLogado != null) ? clienteLogado.getEmailCli() : "N/A";
+        String telefone = (clienteLogado != null) ? String.valueOf(clienteLogado.getTelefoneCli()) : "N/A";
+        String nuit = (clienteLogado != null) ? String.valueOf(clienteLogado.getNuitCli()) : "N/A";
+
+        formPanel.add(new JLabel("Nome Completo:"));
+        formPanel.add(new JLabel(nome));
+
+        formPanel.add(new JLabel("Email:"));
+        formPanel.add(new JLabel(email));
+
+        formPanel.add(new JLabel("Telefone:"));
+        formPanel.add(new JLabel(telefone));
+
+        formPanel.add(new JLabel("NUIT:"));
+        formPanel.add(new JLabel(nuit));
+
+        card.add(formPanel, BorderLayout.CENTER);
+
+        return card;
+    }
+
+    private JPanel createAccountDetailsCard() {
+        JPanel card = new JPanel(new BorderLayout());
+        card.setBackground(CARD_COLOR);
+        card.setBorder(createCardBorder());
+
+        JLabel titleLabel = new JLabel("💳 Detalhes da Conta");
+        titleLabel.setFont(new Font("Arial", Font.BOLD, 14));
+        titleLabel.setBorder(BorderFactory.createEmptyBorder(15, 15, 10, 15));
+        card.add(titleLabel, BorderLayout.NORTH);
+
+        JPanel detailsPanel = new JPanel();
+        detailsPanel.setLayout(new BoxLayout(detailsPanel, BoxLayout.Y_AXIS));
+        detailsPanel.setBackground(CARD_COLOR);
+        detailsPanel.setBorder(BorderFactory.createEmptyBorder(0, 15, 15, 15));
+
+        String numeroConta = (contaCliente != null) ? String.valueOf(contaCliente.getNumeroConta()) : "N/A";
+        String nib = (contaCliente != null) ? String.valueOf(contaCliente.getNib()) : "N/A";
+        String saldo = (contaCliente != null) ? String.format("%.2f MZN", contaCliente.getSaldo()) : "N/A";
+
+        detailsPanel.add(createDetailRow("Número da Conta:", numeroConta));
+        detailsPanel.add(createDetailRow("NIB:", nib));
+        detailsPanel.add(createDetailRow("Tipo de Conta:", getTituloConta()));
+        detailsPanel.add(createDetailRow("Saldo Disponível:", saldo));
+        detailsPanel.add(createDetailRow("Status:", getStatusConta()));
+
+        card.add(detailsPanel, BorderLayout.CENTER);
+
+        return card;
+    }
+
+    private JPanel createSecurityCard() {
+        JPanel card = new JPanel(new BorderLayout());
+        card.setBackground(CARD_COLOR);
+        card.setBorder(createCardBorder());
+
+        JLabel titleLabel = new JLabel("🔒 Segurança");
+        titleLabel.setFont(new Font("Arial", Font.BOLD, 14));
+        titleLabel.setBorder(BorderFactory.createEmptyBorder(15, 15, 10, 15));
+        card.add(titleLabel, BorderLayout.NORTH);
+
+        JPanel securityPanel = new JPanel();
+        securityPanel.setLayout(new BoxLayout(securityPanel, BoxLayout.Y_AXIS));
+        securityPanel.setBackground(CARD_COLOR);
+        securityPanel.setBorder(BorderFactory.createEmptyBorder(0, 15, 15, 15));
+
+        securityPanel.add(createDetailRow("Autenticação 2FA:", "✅ Ativada"));
+        securityPanel.add(createDetailRow("Último Acesso:", new Date().toString()));
+        securityPanel.add(createDetailRow("Nível de Segurança:", "Alto"));
+
+        securityPanel.add(Box.createRigidArea(new Dimension(0, 10)));
+
+        JButton changePasswordBtn = new JButton("Alterar Senha");
+        changePasswordBtn.setAlignmentX(Component.LEFT_ALIGNMENT);
+        changePasswordBtn.setMaximumSize(new Dimension(200, 30));
+        changePasswordBtn.addActionListener(e -> alterarSenha());
+        securityPanel.add(changePasswordBtn);
+
+        card.add(securityPanel, BorderLayout.CENTER);
+
+        return card;
+    }
+
+    private void alterarSenha() {
+        JPasswordField senhaAtual = new JPasswordField(20);
+        JPasswordField novaSenha = new JPasswordField(20);
+        JPasswordField confirmarSenha = new JPasswordField(20);
+
+        JPanel panel = new JPanel(new GridLayout(0, 1));
+        panel.add(new JLabel("Senha Atual:"));
+        panel.add(senhaAtual);
+        panel.add(new JLabel("Nova Senha:"));
+        panel.add(novaSenha);
+        panel.add(new JLabel("Confirmar Nova Senha:"));
+        panel.add(confirmarSenha);
+
+        int result = JOptionPane.showConfirmDialog(this, panel, "Alterar Senha",
+                JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+
+        if (result == JOptionPane.OK_OPTION) {
+            JOptionPane.showMessageDialog(this, "Senha alterada com sucesso!", "Sucesso",
+                    JOptionPane.INFORMATION_MESSAGE);
+        }
+    }
+
+    private JPanel createDetailRow(String label, String value) {
+        JPanel row = new JPanel(new BorderLayout());
+        row.setBackground(CARD_COLOR);
+        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 25));
+
+        JLabel labelComp = new JLabel(label);
+        labelComp.setFont(new Font("Arial", Font.PLAIN, 12));
+        labelComp.setForeground(MUTED_COLOR);
+        row.add(labelComp, BorderLayout.WEST);
+
+        JLabel valueComp = new JLabel(value);
+        valueComp.setFont(new Font("Arial", Font.PLAIN, 12));
+        row.add(valueComp, BorderLayout.EAST);
+
+        return row;
+    }
+
+    private JPanel createTransactionsPanel() {
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.setBackground(BACKGROUND_COLOR);
+        panel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+
+        // Header
+        JPanel headerPanel = new JPanel(new BorderLayout());
+        headerPanel.setBackground(BACKGROUND_COLOR);
+
+        JLabel titleLabel = new JLabel("Histórico de Transações");
+        titleLabel.setFont(new Font("Arial", Font.BOLD, 24));
+        titleLabel.setForeground(PRIMARY_COLOR);
+        headerPanel.add(titleLabel, BorderLayout.WEST);
+
+        JButton exportButton = new JButton("📥 Exportar");
+        exportButton.setBackground(CARD_COLOR);
+        exportButton.setBorder(new LineBorder(BORDER_COLOR));
+        headerPanel.add(exportButton, BorderLayout.EAST);
+
+        panel.add(headerPanel, BorderLayout.NORTH);
+
+        // Tabela de transações
+        String[] columnNames = {"Data/Hora", "Descrição", "Categoria", "Valor", "Status"};
+
+        // Buscar transações reais do sistema
+        DefaultTableModel model = new DefaultTableModel(columnNames, 0);
         if (contaCliente != null) {
-            List<Transacoes> transacoes = sistemaController.visualizarTransacoes(contaCliente.getIdConta());
-            for (Transacoes t : transacoes) {
-                String tipo = t.getCategoria(); // Ou lógica para determinar Saque/Depósito/Transferência
+            List<Transacoes> transacoes = sistemaController.consultarHistorico(contaCliente.getIdConta());
+            for (Transacoes transacao : transacoes) {
                 model.addRow(new Object[]{
-                        t.getData().toString(),
-                        tipo,
-                        String.format("%.2f", t.getValor()),
-                        t.getDescricao()
+                        transacao.getData().toString(),
+                        transacao.getDescricaoTrancacao(),
+                        transacao.getCategoria(),
+                        String.format("%.2f MZN", transacao.getValor()),
+                        transacao.getStatus().toString()
                 });
             }
         }
 
-        JScrollPane scrollPane = new JScrollPane(tabela);
-        panelHistorico.add(scrollPane, BorderLayout.CENTER);
+        JTable table = new JTable(model);
+        table.setBackground(CARD_COLOR);
+        table.setRowHeight(40);
+        table.setGridColor(BORDER_COLOR);
+        table.getTableHeader().setBackground(SECONDARY_COLOR);
+        table.getTableHeader().setFont(new Font("Arial", Font.BOLD, 12));
 
-        jPanel1.add(panelHistorico, BorderLayout.CENTER);
-        jPanel1.revalidate();
-        jPanel1.repaint();
+        JScrollPane scrollPane = new JScrollPane(table);
+        scrollPane.setBorder(createCardBorder());
+
+        panel.add(scrollPane, BorderLayout.CENTER);
+
+        return panel;
     }
 
-    // =================================================================
-    // NOVO MÉTODO: baixarRelatorioTransacoes() - Lógica de download
-    // =================================================================
-    private void baixarRelatorioTransacoes() {
-        if (contaCliente == null) {
-            JOptionPane.showMessageDialog(this, "Conta não encontrada para gerar relatório.", "Erro", JOptionPane.ERROR_MESSAGE);
-            return;
-        }
+    private JPanel createTransferPanel() {
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.setBackground(BACKGROUND_COLOR);
+        panel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
 
-        // 1. Coletar dados
-        List<Transacoes> transacoes = sistemaController.visualizarTransacoes(contaCliente.getIdConta());
-
-        // 2. Montar o conteúdo completo do relatório
-        StringBuilder sb = new StringBuilder();
-        sb.append("====================================================\n");
-        sb.append("         RELATÓRIO DE TRANSAÇÕES - CLIENTE          \n");
-        sb.append(String.format("         Cliente: %s | Conta: %d\n", clienteLogado.getNomeCli(), contaCliente.getNumeroConta()));
-        sb.append("         Data de Geração: ").append(LocalDate.now()).append("\n");
-        sb.append("====================================================\n\n");
-
-        sb.append(String.format("%-25s | %-15s | %-15s | %s\n", "DATA/HORA", "TIPO", "VALOR (MT)", "DESCRIÇÃO"));
-        sb.append("--------------------------+-----------------+-----------------+----------------------------------------\n");
-
-        if (transacoes.isEmpty()) {
-            sb.append("Nenhuma transação encontrada no período.\n");
-        } else {
-            for (Transacoes t : transacoes) {
-                sb.append(String.format("%-25s | %-15s | %-15.2f | %s\n",
-                        t.getData().toString(), t.getCategoria(), t.getValor(), t.getDescricao()));
-            }
-        }
-        sb.append("\n====================================================\n");
-        sb.append(String.format("SALDO ATUAL: %.2f MZN\n", contaCliente.getSaldo()));
-
-        // 3. Simular download (usando JFileChooser para salvar arquivo)
-        JFileChooser fileChooser = new JFileChooser();
-        fileChooser.setDialogTitle("Salvar Relatório de Transações");
-
-        // Sugerir nome do arquivo
-        fileChooser.setSelectedFile(new File("Relatorio_Transacoes_" + clienteLogado.getIdCliente() + "_" + LocalDate.now() + ".txt"));
-
-        int userSelection = fileChooser.showSaveDialog(this);
-
-        if (userSelection == JFileChooser.APPROVE_OPTION) {
-            File fileToSave = fileChooser.getSelectedFile();
-            try (PrintWriter out = new PrintWriter(fileToSave)) {
-                out.println(sb.toString());
-                JOptionPane.showMessageDialog(this,
-                        "Relatório salvo com sucesso em:\n" + fileToSave.getAbsolutePath(),
-                        "Download Concluído",
-                        JOptionPane.INFORMATION_MESSAGE);
-            } catch (java.io.FileNotFoundException ex) {
-                JOptionPane.showMessageDialog(this, "Erro ao salvar o arquivo: " + ex.getMessage(), "Erro de I/O", JOptionPane.ERROR_MESSAGE);
-            }
-        } else {
-            JOptionPane.showMessageDialog(this, "Download cancelado pelo usuário.", "Cancelado", JOptionPane.WARNING_MESSAGE);
-        }
-    }
-    // =================================================================
-    // FIM NOVO MÉTODO
-    // =================================================================
-
-    private void mostrarVerPerfil() {
-        jPanel1.removeAll();
-
-        JPanel panelPerfil = new JPanel(new BorderLayout());
-        panelPerfil.setBackground(Color.WHITE);
-        panelPerfil.setBorder(BorderFactory.createEmptyBorder(20, 40, 20, 40));
-
-        // Título
-        JLabel titulo = new JLabel("MEU PERFIL", JLabel.CENTER);
-        titulo.setFont(new Font("Segoe UI", Font.BOLD, 24));
-        titulo.setForeground(new Color(0, 0, 139));
-        titulo.setBorder(BorderFactory.createEmptyBorder(0, 0, 20, 0));
-        panelPerfil.add(titulo, BorderLayout.NORTH);
-
-        // Painel de informações
-        JPanel infoPanel = new JPanel(new GridLayout(0, 2, 10, 10));
-        infoPanel.setBackground(Color.WHITE);
-        infoPanel.setBorder(BorderFactory.createEmptyBorder(15, 30, 15, 30));
-
-        // Dados reais do cliente
-        if (clienteLogado != null) {
-            adicionarInfoPerfil(infoPanel, "Nome Completo:", clienteLogado.getNomeCli());
-            adicionarInfoPerfil(infoPanel, "ID Cliente:", String.valueOf(clienteLogado.getIdCliente()));
-            adicionarInfoPerfil(infoPanel, "NUIT:", String.valueOf(clienteLogado.getNuitCli()));
-            adicionarInfoPerfil(infoPanel, "Telefone:", String.valueOf(clienteLogado.getTelefoneCli()));
-            adicionarInfoPerfil(infoPanel, "Email:", clienteLogado.getEmailCli());
-            adicionarInfoPerfil(infoPanel, "Endereço:", clienteLogado.getEnderecoCli());
-            adicionarInfoPerfil(infoPanel, "Status:", clienteLogado.getStatus().toString());
-        }
-
-        if (contaCliente != null) {
-            adicionarInfoPerfil(infoPanel, "Número da Conta:", String.valueOf(contaCliente.getNumeroConta()));
-            adicionarInfoPerfil(infoPanel, "Tipo de Conta:", contaCliente.getTipoConta().toString());
-            adicionarInfoPerfil(infoPanel, "Saldo Disponível:", String.format("%.2f MZN", contaCliente.getSaldo()));
-            adicionarInfoPerfil(infoPanel, "Status da Conta:", contaCliente.getStatus().toString());
-        }
-
-        panelPerfil.add(infoPanel, BorderLayout.CENTER);
-
-        // Botão para atualizar dados
-        JPanel panelBotoes = new JPanel();
-        panelBotoes.setBackground(Color.WHITE);
-        panelBotoes.setBorder(BorderFactory.createEmptyBorder(20, 0, 0, 0));
-
-        JButton btnAtualizar = criarBotaoAcao("🔄 Atualizar Dados", new Color(0, 100, 180));
-        btnAtualizar.addActionListener(e -> solicitarAtualizacaoDados());
-        panelBotoes.add(btnAtualizar);
-
-        panelPerfil.add(panelBotoes, BorderLayout.SOUTH);
-
-        jPanel1.add(panelPerfil, BorderLayout.CENTER);
-        jPanel1.revalidate();
-        jPanel1.repaint();
-    }
-
-    private void adicionarInfoPerfil(JPanel panel, String label, String valor) {
-        JLabel lbl = new JLabel(label);
-        lbl.setFont(new Font("Segoe UI", Font.BOLD, 12));
-        lbl.setForeground(new Color(80, 80, 80));
-        panel.add(lbl);
-
-        JLabel lblValor = new JLabel(valor);
-        lblValor.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-        lblValor.setForeground(new Color(40, 40, 40));
-        panel.add(lblValor);
-    }
-
-    private void solicitarAtualizacaoDados() {
-        JOptionPane.showMessageDialog(this,
-                "Para atualizar seus dados pessoais, dirija-se a um balcão de atendimento.\n\n" +
-                        "Documentos necessários:\n" +
-                        "• BI ou Passaporte\n" +
-                        "• Comprovativo de residência\n" +
-                        "• Outros documentos conforme necessário\n\n" +
-                        "📞 Suporte: +258 84 123 4567\n" +
-                        "🕒 Horário: Segunda a Sexta, 8h às 15h",
-                "Atualização de Dados Pessoais",
-                JOptionPane.INFORMATION_MESSAGE);
-    }
-
-    private void mostrarPagamentos() {
-        jPanel1.removeAll();
-
-        JPanel panelPagamentos = new JPanel(new BorderLayout());
-        panelPagamentos.setBackground(Color.WHITE);
-        panelPagamentos.setBorder(BorderFactory.createEmptyBorder(30, 50, 30, 50));
-
-        JLabel titulo = new JLabel("PAGAMENTO DE SERVIÇOS", JLabel.CENTER);
-        titulo.setFont(new Font("Segoe UI", Font.BOLD, 24));
-        titulo.setForeground(new Color(0, 0, 139));
-        titulo.setBorder(BorderFactory.createEmptyBorder(0, 0, 30, 0));
-        panelPagamentos.add(titulo, BorderLayout.NORTH);
+        JLabel titleLabel = new JLabel("Transferência Bancária");
+        titleLabel.setFont(new Font("Arial", Font.BOLD, 24));
+        titleLabel.setForeground(PRIMARY_COLOR);
+        panel.add(titleLabel, BorderLayout.NORTH);
 
         JPanel formPanel = new JPanel(new GridBagLayout());
-        formPanel.setBackground(Color.WHITE);
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.fill = GridBagConstraints.HORIZONTAL;
-        gbc.insets = new Insets(8, 10, 8, 10);
+        formPanel.setBackground(BACKGROUND_COLOR);
+        formPanel.setBorder(BorderFactory.createEmptyBorder(20, 50, 20, 50));
 
-        // Campo Entidade
-        gbc.gridx = 0; gbc.gridy = 0;
-        formPanel.add(criarLabel("Entidade:"), gbc);
-
-        gbc.gridx = 1; gbc.gridy = 0;
-        gbc.weightx = 1.0;
-        JTextField txtEntidade = criarTextField();
-        txtEntidade.setToolTipText("Ex: EDM, FIPAG, TMCEL, etc.");
-        formPanel.add(txtEntidade, gbc);
-
-        // Campo Referência
-        gbc.gridx = 0; gbc.gridy = 1;
-        gbc.weightx = 0;
-        formPanel.add(criarLabel("Referência:"), gbc);
-
-        gbc.gridx = 1; gbc.gridy = 1;
-        gbc.weightx = 1.0;
-        JTextField txtReferencia = criarTextField();
-        txtReferencia.setToolTipText("Número de referência do serviço");
-        formPanel.add(txtReferencia, gbc);
-
-        // Campo Valor
-        gbc.gridx = 0; gbc.gridy = 2;
-        gbc.weightx = 0;
-        formPanel.add(criarLabel("Valor (MT):"), gbc);
-
-        gbc.gridx = 1; gbc.gridy = 2;
-        gbc.weightx = 1.0;
-        JTextField txtValor = criarTextField();
-        formPanel.add(txtValor, gbc);
-
-        // Botão Pagar
-        gbc.gridx = 0; gbc.gridy = 3;
-        gbc.gridwidth = 2;
-        gbc.insets = new Insets(20, 10, 10, 10);
-        gbc.anchor = GridBagConstraints.CENTER;
-        JButton btnPagar = criarBotaoAcao("💳 PAGAR SERVIÇO", new Color(0, 100, 0));
-        btnPagar.addActionListener(e -> processarPagamento(txtEntidade.getText(), txtReferencia.getText(), txtValor.getText()));
-        formPanel.add(btnPagar, gbc);
-
-        panelPagamentos.add(formPanel, BorderLayout.CENTER);
-        jPanel1.add(panelPagamentos, BorderLayout.CENTER);
-        jPanel1.revalidate();
-        jPanel1.repaint();
-    }
-
-    private void processarPagamento(String entidade, String referencia, String valorStr) {
-        if (entidade.isEmpty() || referencia.isEmpty() || valorStr.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Preencha todos os campos!", "Erro", JOptionPane.ERROR_MESSAGE);
-            return;
-        }
-
-        try {
-            double valor = Double.parseDouble(valorStr);
-            if (valor <= 0) {
-                JOptionPane.showMessageDialog(this, "Valor deve ser positivo!", "Erro", JOptionPane.ERROR_MESSAGE);
-                return;
-            }
-
-            if (contaCliente == null) {
-                JOptionPane.showMessageDialog(this, "Conta não encontrada!", "Erro", JOptionPane.ERROR_MESSAGE);
-                return;
-            }
-
-            // Simular pagamento - debitar da conta
-            if (sistemaController.sacar(contaCliente.getIdConta(), valor)) {
-                sistemaController.registrarTransacao(contaCliente.getIdConta(), "Pagamento: " + entidade, valor);
-                JOptionPane.showMessageDialog(this,
-                        "Pagamento realizado com sucesso!\n" +
-                                "Entidade: " + entidade + "\n" +
-                                "Referência: " + referencia + "\n" +
-                                "Valor: " + String.format("%.2f MZN", valor),
-                        "Pagamento Efetuado",
-                        JOptionPane.INFORMATION_MESSAGE);
-            } else {
-                JOptionPane.showMessageDialog(this,
-                        "Saldo insuficiente para realizar o pagamento!",
-                        "Erro",
-                        JOptionPane.ERROR_MESSAGE);
-            }
-
-        } catch (NumberFormatException ex) {
-            JOptionPane.showMessageDialog(this, "Valor inválido!", "Erro", JOptionPane.ERROR_MESSAGE);
-        }
-    }
-
-    private void mostrarTelaInicial() {
-        jPanel1.removeAll();
-
-        JPanel panelInicial = new JPanel(new GridBagLayout());
-        panelInicial.setBackground(Color.WHITE);
-
-        String mensagem = "Bem-vindo, " + (clienteLogado != null ? clienteLogado.getNomeCli() : "Cliente") + "!";
-        JLabel lblMensagem = new JLabel(mensagem, JLabel.CENTER);
-        lblMensagem.setFont(new Font("Segoe UI", Font.PLAIN, 20));
-        lblMensagem.setForeground(new Color(120, 120, 120));
-
-        panelInicial.add(lblMensagem);
-
-        jPanel1.add(panelInicial, BorderLayout.CENTER);
-        jPanel1.revalidate();
-        jPanel1.repaint();
-    }
-
-    private void mostrarConsultarSaldo() {
-        jPanel1.removeAll();
-
-        JPanel panelSaldo = new JPanel(new BorderLayout());
-        panelSaldo.setBackground(Color.WHITE);
-        panelSaldo.setBorder(BorderFactory.createEmptyBorder(40, 50, 40, 50));
-
-        double saldo = (contaCliente != null) ? sistemaController.consultarSaldo(contaCliente.getIdConta()) : 0.0;
-
-        JLabel lblSaldo = new JLabel("SALDO DISPONÍVEL", JLabel.CENTER);
-        lblSaldo.setFont(new Font("Segoe UI", Font.BOLD, 28));
-        lblSaldo.setForeground(new Color(0, 100, 0));
-
-        JLabel lblValor = new JLabel(String.format("%.2f MZN", saldo), JLabel.CENTER);
-        lblValor.setFont(new Font("Segoe UI", Font.BOLD, 36));
-        lblValor.setForeground(new Color(0, 0, 139));
-
-        JLabel lblInfo = new JLabel("Última atualização: " + new java.util.Date(), JLabel.CENTER);
-        lblInfo.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        lblInfo.setForeground(Color.GRAY);
-
-        JPanel centerPanel = new JPanel(new GridLayout(3, 1, 10, 10));
-        centerPanel.setBackground(Color.WHITE);
-        centerPanel.add(lblSaldo);
-        centerPanel.add(lblValor);
-        centerPanel.add(lblInfo);
-
-        panelSaldo.add(centerPanel, BorderLayout.CENTER);
-        jPanel1.add(panelSaldo, BorderLayout.CENTER);
-        jPanel1.revalidate();
-        jPanel1.repaint();
-    }
-
-    private void mostrarSaque() {
-        jPanel1.removeAll();
-
-        JPanel panelSaque = new JPanel(new BorderLayout());
-        panelSaque.setBackground(Color.WHITE);
-        panelSaque.setBorder(BorderFactory.createEmptyBorder(30, 50, 30, 50));
-
-        JLabel titulo = new JLabel("REALIZAR SAQUE", JLabel.CENTER);
-        titulo.setFont(new Font("Segoe UI", Font.BOLD, 24));
-        titulo.setForeground(new Color(0, 0, 139));
-        titulo.setBorder(BorderFactory.createEmptyBorder(0, 0, 30, 0));
-        panelSaque.add(titulo, BorderLayout.NORTH);
-
-        JPanel formPanel = new JPanel(new GridBagLayout());
-        formPanel.setBackground(Color.WHITE);
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.fill = GridBagConstraints.HORIZONTAL;
         gbc.insets = new Insets(10, 10, 10, 10);
 
-        // Campo Valor
+        // Campos do formulário
         gbc.gridx = 0; gbc.gridy = 0;
-        JLabel lblValor = criarLabel("Valor do Saque (MT):");
-        formPanel.add(lblValor, gbc);
+        formPanel.add(new JLabel("Conta Destino:"), gbc);
 
         gbc.gridx = 1; gbc.gridy = 0;
-        gbc.weightx = 1.0;
-        JTextField txtValor = criarTextField();
-        formPanel.add(txtValor, gbc);
+        JTextField contaDestino = new JTextField(20);
+        formPanel.add(contaDestino, gbc);
 
-        // Botão Sacar
+        gbc.gridx = 0; gbc.gridy = 1;
+        formPanel.add(new JLabel("Valor (MZN):"), gbc);
+
+        gbc.gridx = 1; gbc.gridy = 1;
+        JTextField valor = new JTextField(20);
+        formPanel.add(valor, gbc);
+
+        gbc.gridx = 0; gbc.gridy = 2;
+        formPanel.add(new JLabel("Descrição:"), gbc);
+
+        gbc.gridx = 1; gbc.gridy = 2;
+        JTextField descricao = new JTextField(20);
+        formPanel.add(descricao, gbc);
+
+        gbc.gridx = 0; gbc.gridy = 3;
+        gbc.gridwidth = 2;
+        gbc.anchor = GridBagConstraints.CENTER;
+        JButton transferirBtn = new JButton("💸 Transferir");
+        transferirBtn.setBackground(PRIMARY_COLOR);
+        transferirBtn.setForeground(Color.WHITE);
+        transferirBtn.setFont(new Font("Arial", Font.BOLD, 16));
+        transferirBtn.addActionListener(e -> processarTransferencia(contaDestino.getText(), valor.getText(), descricao.getText()));
+        formPanel.add(transferirBtn, gbc);
+
+        panel.add(formPanel, BorderLayout.CENTER);
+
+        return panel;
+    }
+
+    private void processarTransferencia(String contaDestino, String valorStr, String descricao) {
+        try {
+            if (contaDestino.isEmpty() || valorStr.isEmpty()) {
+                JOptionPane.showMessageDialog(this, "Preencha todos os campos!", "Erro", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+
+            double valor = Double.parseDouble(valorStr);
+            int contaDest = Integer.parseInt(contaDestino);
+
+            if (sistemaController.transferirComTaxa(contaCliente.getIdConta(), contaDest, valor)) {
+                JOptionPane.showMessageDialog(this, "Transferência realizada com sucesso!", "Sucesso",
+                        JOptionPane.INFORMATION_MESSAGE);
+            } else {
+                JOptionPane.showMessageDialog(this, "Erro na transferência. Verifique os dados.", "Erro",
+                        JOptionPane.ERROR_MESSAGE);
+            }
+        } catch (NumberFormatException e) {
+            JOptionPane.showMessageDialog(this, "Valores inválidos!", "Erro", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private JPanel createWithdrawPanel() {
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.setBackground(BACKGROUND_COLOR);
+        panel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+
+        JLabel titleLabel = new JLabel("Saque");
+        titleLabel.setFont(new Font("Arial", Font.BOLD, 24));
+        titleLabel.setForeground(PRIMARY_COLOR);
+        panel.add(titleLabel, BorderLayout.NORTH);
+
+        JPanel formPanel = new JPanel(new GridBagLayout());
+        formPanel.setBackground(BACKGROUND_COLOR);
+        formPanel.setBorder(BorderFactory.createEmptyBorder(20, 50, 20, 50));
+
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.insets = new Insets(10, 10, 10, 10);
+
+        gbc.gridx = 0; gbc.gridy = 0;
+        formPanel.add(new JLabel("Valor do Saque (MZN):"), gbc);
+
+        gbc.gridx = 1; gbc.gridy = 0;
+        JTextField valor = new JTextField(20);
+        formPanel.add(valor, gbc);
+
         gbc.gridx = 0; gbc.gridy = 1;
         gbc.gridwidth = 2;
         gbc.anchor = GridBagConstraints.CENTER;
-        JButton btnSacar = criarBotaoAcao("💰 SACAR", new Color(178, 34, 34));
-        btnSacar.addActionListener(e -> processarSaque(txtValor.getText()));
-        formPanel.add(btnSacar, gbc);
+        JButton sacarBtn = new JButton("💰 Sacar");
+        sacarBtn.setBackground(PRIMARY_COLOR);
+        sacarBtn.setForeground(Color.WHITE);
+        sacarBtn.setFont(new Font("Arial", Font.BOLD, 16));
+        sacarBtn.addActionListener(e -> processarSaque(valor.getText()));
+        formPanel.add(sacarBtn, gbc);
 
-        panelSaque.add(formPanel, BorderLayout.CENTER);
-        jPanel1.add(panelSaque);
-        jPanel1.revalidate();
-        jPanel1.repaint();
+        panel.add(formPanel, BorderLayout.CENTER);
+
+        return panel;
     }
 
     private void processarSaque(String valorStr) {
-        if (valorStr.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Digite o valor do saque!", "Erro", JOptionPane.ERROR_MESSAGE);
-            return;
-        }
-
         try {
-            double valor = Double.parseDouble(valorStr);
-            if (valor <= 0) {
-                JOptionPane.showMessageDialog(this, "Valor deve ser positivo!", "Erro", JOptionPane.ERROR_MESSAGE);
+            if (valorStr.isEmpty()) {
+                JOptionPane.showMessageDialog(this, "Digite o valor do saque!", "Erro", JOptionPane.ERROR_MESSAGE);
                 return;
             }
 
-            if (contaCliente == null) {
-                JOptionPane.showMessageDialog(this, "Conta não encontrada!", "Erro", JOptionPane.ERROR_MESSAGE);
-                return;
-            }
+            double valor = Double.parseDouble(valorStr);
 
             if (sistemaController.sacarComTaxa(contaCliente.getIdConta(), valor)) {
-                JOptionPane.showMessageDialog(this,
-                        "Saque realizado com sucesso!\n" +
-                                "Valor: " + String.format("%.2f MZN", valor) + "\n" +
-                                "Taxa aplicada: 0.5%",
-                        "Saque Efetuado",
+                JOptionPane.showMessageDialog(this, "Saque realizado com sucesso!", "Sucesso",
                         JOptionPane.INFORMATION_MESSAGE);
             } else {
-                JOptionPane.showMessageDialog(this,
-                        "Saldo insuficiente para realizar o saque!",
-                        "Erro",
+                JOptionPane.showMessageDialog(this, "Saldo insuficiente!", "Erro",
                         JOptionPane.ERROR_MESSAGE);
             }
-
-        } catch (NumberFormatException ex) {
+        } catch (NumberFormatException e) {
             JOptionPane.showMessageDialog(this, "Valor inválido!", "Erro", JOptionPane.ERROR_MESSAGE);
         }
     }
 
-    private void mostrarTransferir() {
-        jPanel1.removeAll();
-
-        JPanel panelTransferencia = new JPanel(new BorderLayout());
-        panelTransferencia.setBackground(Color.WHITE);
-        panelTransferencia.setBorder(BorderFactory.createEmptyBorder(20, 50, 20, 50));
-
-        JLabel titulo = new JLabel("TRANSFERÊNCIA BANCÁRIA", JLabel.CENTER);
-        titulo.setFont(new Font("Segoe UI", Font.BOLD, 24));
-        titulo.setForeground(new Color(0, 0, 139));
-        titulo.setBorder(BorderFactory.createEmptyBorder(0, 0, 20, 0));
-        panelTransferencia.add(titulo, BorderLayout.NORTH);
-
-        // Painel com abas para diferentes tipos de transferência
-        JTabbedPane abasTransferencia = new JTabbedPane();
-        abasTransferencia.setFont(new Font("Segoe UI", Font.BOLD, 14));
-
-        // Aba 1: Mesmo Banco
-        abasTransferencia.addTab("🏦 Mesmo Banco", criarPainelTransferenciaMesmoBanco());
-
-        // Aba 2: Outro Banco
-        abasTransferencia.addTab("🔗 Outro Banco", criarPainelTransferenciaOutroBanco());
-
-        panelTransferencia.add(abasTransferencia, BorderLayout.CENTER);
-        jPanel1.add(panelTransferencia);
-        jPanel1.revalidate();
-        jPanel1.repaint();
-    }
-
-    private JPanel criarPainelTransferenciaMesmoBanco() {
-        JPanel panel = new JPanel(new GridBagLayout());
-        panel.setBackground(Color.WHITE);
+    private JPanel createPaymentsPanel() {
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.setBackground(BACKGROUND_COLOR);
         panel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
 
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.fill = GridBagConstraints.HORIZONTAL;
-        gbc.insets = new Insets(8, 10, 8, 10);
+        JLabel titleLabel = new JLabel("Pagamento de Serviços");
+        titleLabel.setFont(new Font("Arial", Font.BOLD, 24));
+        titleLabel.setForeground(PRIMARY_COLOR);
+        panel.add(titleLabel, BorderLayout.NORTH);
 
-        // Campo Conta Destino
-        gbc.gridx = 0; gbc.gridy = 0;
-        panel.add(criarLabel("Número da Conta Destino:"), gbc);
-
-        gbc.gridx = 1; gbc.gridy = 0;
-        gbc.weightx = 1.0;
-        JTextField txtContaDestino = criarTextField();
-        panel.add(txtContaDestino, gbc);
-
-        // Campo Valor
-        gbc.gridx = 0; gbc.gridy = 1;
-        gbc.weightx = 0;
-        panel.add(criarLabel("Valor (MT):"), gbc);
-
-        gbc.gridx = 1; gbc.gridy = 1;
-        gbc.weightx = 1.0;
-        JTextField txtValor = criarTextField();
-        panel.add(txtValor, gbc);
-
-        // Campo Descrição
-        gbc.gridx = 0; gbc.gridy = 2;
-        gbc.weightx = 0;
-        panel.add(criarLabel("Descrição:"), gbc);
-
-        gbc.gridx = 1; gbc.gridy = 2;
-        gbc.weightx = 1.0;
-        JTextField txtDescricao = criarTextField();
-        panel.add(txtDescricao, gbc);
-
-        // Botão Transferir
-        gbc.gridx = 0; gbc.gridy = 3;
-        gbc.gridwidth = 2;
-        gbc.insets = new Insets(20, 10, 10, 10);
-        gbc.anchor = GridBagConstraints.CENTER;
-        JButton btnTransferir = criarBotaoAcao("🔄 TRANSFERIR", new Color(0, 100, 0));
-        btnTransferir.addActionListener(e -> processarTransferenciaMesmoBanco(
-                txtContaDestino.getText(), txtValor.getText(), txtDescricao.getText()));
-        panel.add(btnTransferir, gbc);
+        JLabel infoLabel = new JLabel("Funcionalidade em desenvolvimento...");
+        infoLabel.setFont(new Font("Arial", Font.PLAIN, 16));
+        infoLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        panel.add(infoLabel, BorderLayout.CENTER);
 
         return panel;
     }
 
-    private JPanel criarPainelTransferenciaOutroBanco() {
-        JPanel panel = new JPanel(new GridBagLayout());
-        panel.setBackground(Color.WHITE);
+    private JPanel createNotificationsPanel() {
+        return createPlaceholderPanel("Notificações");
+    }
+
+    private JPanel createSettingsPanel() {
+        return createPlaceholderPanel("Configurações");
+    }
+
+    private JPanel createPlaceholderPanel(String title) {
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.setBackground(BACKGROUND_COLOR);
         panel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
 
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.fill = GridBagConstraints.HORIZONTAL;
-        gbc.insets = new Insets(8, 10, 8, 10);
+        JLabel titleLabel = new JLabel(title);
+        titleLabel.setFont(new Font("Arial", Font.BOLD, 24));
+        titleLabel.setForeground(PRIMARY_COLOR);
+        panel.add(titleLabel, BorderLayout.NORTH);
 
-        // Campo NIB Destino
-        gbc.gridx = 0; gbc.gridy = 0;
-        panel.add(criarLabel("NIB da Conta Destino:"), gbc);
-
-        gbc.gridx = 1; gbc.gridy = 0;
-        gbc.weightx = 1.0;
-        JTextField txtNibDestino = criarTextField();
-        txtNibDestino.setToolTipText("Número de Identificação Bancária (21 dígitos)");
-        panel.add(txtNibDestino, gbc);
-
-        // Campo Valor
-        gbc.gridx = 0; gbc.gridy = 1;
-        gbc.weightx = 0;
-        panel.add(criarLabel("Valor (MT):"), gbc);
-
-        gbc.gridx = 1; gbc.gridy = 1;
-        gbc.weightx = 1.0;
-        JTextField txtValor = criarTextField();
-        panel.add(txtValor, gbc);
-
-        // Campo Descrição
-        gbc.gridx = 0; gbc.gridy = 2;
-        gbc.weightx = 0;
-        panel.add(criarLabel("Descrição:"), gbc);
-
-        gbc.gridx = 1; gbc.gridy = 2;
-        gbc.weightx = 1.0;
-        JTextField txtDescricao = criarTextField();
-        panel.add(txtDescricao, gbc);
-
-        // Informação sobre taxa
-        JLabel lblTaxa = new JLabel("ℹ️ Taxa de 1% será aplicada na transferência");
-        lblTaxa.setFont(new Font("Segoe UI", Font.ITALIC, 12));
-        lblTaxa.setForeground(Color.GRAY);
-        gbc.gridx = 0; gbc.gridy = 3;
-        gbc.gridwidth = 2;
-        gbc.insets = new Insets(10, 10, 5, 10);
-        panel.add(lblTaxa, gbc);
-
-        // Botão Transferir
-        gbc.gridx = 0; gbc.gridy = 4;
-        gbc.gridwidth = 2;
-        gbc.insets = new Insets(15, 10, 10, 10);
-        gbc.anchor = GridBagConstraints.CENTER;
-        JButton btnTransferir = criarBotaoAcao("🔗 TRANSFERIR OUTRO BANCO", new Color(70, 130, 180));
-        btnTransferir.addActionListener(e -> processarTransferenciaOutroBanco(
-                txtNibDestino.getText(), txtValor.getText(), txtDescricao.getText()));
-        panel.add(btnTransferir, gbc);
+        JLabel descLabel = new JLabel("Esta seção será implementada em breve...");
+        descLabel.setFont(new Font("Arial", Font.PLAIN, 16));
+        descLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        descLabel.setForeground(MUTED_COLOR);
+        panel.add(descLabel, BorderLayout.CENTER);
 
         return panel;
     }
 
-    private void processarTransferenciaMesmoBanco(String contaDestinoStr, String valorStr, String descricao) {
-        if (contaDestinoStr.isEmpty() || valorStr.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Preencha todos os campos obrigatórios!", "Erro", JOptionPane.ERROR_MESSAGE);
-            return;
-        }
-
-        try {
-            int contaDestino = Integer.parseInt(contaDestinoStr);
-            double valor = Double.parseDouble(valorStr);
-
-            if (contaCliente == null) {
-                JOptionPane.showMessageDialog(this, "Conta não encontrada!", "Erro", JOptionPane.ERROR_MESSAGE);
-                return;
-            }
-
-            if (sistemaController.transferirComTaxa(contaCliente.getIdConta(), contaDestino, valor)) {
-                JOptionPane.showMessageDialog(this,
-                        "Transferência realizada com sucesso!\n" +
-                                "Para conta: " + contaDestino + "\n" +
-                                "Valor: " + String.format("%.2f MZN", valor) + "\n" +
-                                "Taxa: 0.2%",
-                        "Transferência Efetuada",
-                        JOptionPane.INFORMATION_MESSAGE);
-            } else {
-                JOptionPane.showMessageDialog(this,
-                        "Erro na transferência! Verifique os dados e saldo.",
-                        "Erro",
-                        JOptionPane.ERROR_MESSAGE);
-            }
-
-        } catch (NumberFormatException ex) {
-            JOptionPane.showMessageDialog(this, "Dados inválidos!", "Erro", JOptionPane.ERROR_MESSAGE);
-        }
-    }
-
-    private void processarTransferenciaOutroBanco(String nibDestino, String valorStr, String descricao) {
-        if (nibDestino.isEmpty() || valorStr.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Preencha todos os campos obrigatórios!", "Erro", JOptionPane.ERROR_MESSAGE);
-            return;
-        }
-
-        try {
-            double valor = Double.parseDouble(valorStr);
-
-            if (contaCliente == null) {
-                JOptionPane.showMessageDialog(this, "Conta não encontrada!", "Erro", JOptionPane.ERROR_MESSAGE);
-                return;
-            }
-
-            if (sistemaController.transferirOutroBanco(contaCliente.getIdConta(), nibDestino, valor)) {
-                JOptionPane.showMessageDialog(this,
-                        "Transferência para outro banco realizada!\n" +
-                                "NIB: " + nibDestino + "\n" +
-                                "Valor: " + String.format("%.2f MZN", valor) + "\n" +
-                                "Taxa: 1.0%",
-                        "Transferência Efetuada",
-                        JOptionPane.INFORMATION_MESSAGE);
-            } else {
-                JOptionPane.showMessageDialog(this,
-                        "Erro na transferência! Verifique saldo e dados.",
-                        "Erro",
-                        JOptionPane.ERROR_MESSAGE);
-            }
-
-        } catch (NumberFormatException ex) {
-            JOptionPane.showMessageDialog(this, "Valor inválido!", "Erro", JOptionPane.ERROR_MESSAGE);
-        }
-    }
-
-    private void mostrarTransferirCelular() {
-        jPanel1.removeAll();
-
-        JPanel panelCelular = new JPanel(new BorderLayout());
-        panelCelular.setBackground(Color.WHITE);
-        panelCelular.setBorder(BorderFactory.createEmptyBorder(30, 50, 30, 50));
-
-        JLabel titulo = new JLabel("TRANSFERIR PARA CELULAR", JLabel.CENTER);
-        titulo.setFont(new Font("Segoe UI", Font.BOLD, 24));
-        titulo.setForeground(new Color(0, 0, 139));
-        titulo.setBorder(BorderFactory.createEmptyBorder(0, 0, 30, 0));
-        panelCelular.add(titulo, BorderLayout.NORTH);
-
-        JPanel formPanel = new JPanel(new GridBagLayout());
-        formPanel.setBackground(Color.WHITE);
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.fill = GridBagConstraints.HORIZONTAL;
-        gbc.insets = new Insets(8, 10, 8, 10);
-
-        // Campo Número Celular
-        gbc.gridx = 0; gbc.gridy = 0;
-        formPanel.add(criarLabel("Número Celular:"), gbc);
-
-        gbc.gridx = 1; gbc.gridy = 0;
-        gbc.weightx = 1.0;
-        JTextField txtCelular = criarTextField();
-        formPanel.add(txtCelular, gbc);
-
-        // Campo Operadora
-        gbc.gridx = 0; gbc.gridy = 1;
-        gbc.weightx = 0;
-        formPanel.add(criarLabel("Operadora:"), gbc);
-
-        gbc.gridx = 1; gbc.gridy = 1;
-        gbc.weightx = 1.0;
-        JComboBox<String> cmbOperadora = new JComboBox<>(new String[]{"Selecione...", "M-Pesa", "Movitel", "Vodacom"});
-        cmbOperadora.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        cmbOperadora.setPreferredSize(new Dimension(300, 35));
-        formPanel.add(cmbOperadora, gbc);
-
-        // Campo Valor
-        gbc.gridx = 0; gbc.gridy = 2;
-        gbc.weightx = 0;
-        formPanel.add(criarLabel("Valor (MT):"), gbc);
-
-        gbc.gridx = 1; gbc.gridy = 2;
-        gbc.weightx = 1.0;
-        JTextField txtValor = criarTextField();
-        formPanel.add(txtValor, gbc);
-
-        // Botão Transferir
-        gbc.gridx = 0; gbc.gridy = 3;
-        gbc.gridwidth = 2;
-        gbc.insets = new Insets(20, 10, 10, 10);
-        gbc.anchor = GridBagConstraints.CENTER;
-        JButton btnTransferir = criarBotaoAcao("📱 TRANSFERIR", new Color(0, 100, 0));
-        btnTransferir.addActionListener(e -> processarTransferenciaCelular(
-                txtCelular.getText(), (String) cmbOperadora.getSelectedItem(), txtValor.getText()));
-        formPanel.add(btnTransferir, gbc);
-
-        panelCelular.add(formPanel, BorderLayout.CENTER);
-        jPanel1.add(panelCelular);
-        jPanel1.revalidate();
-        jPanel1.repaint();
-    }
-
-    private void processarTransferenciaCelular(String celular, String operadora, String valorStr) {
-        if (celular.isEmpty() || "Selecione...".equals(operadora) || valorStr.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Preencha todos os campos!", "Erro", JOptionPane.ERROR_MESSAGE);
-            return;
-        }
-
-        // 1. Validação do número de celular: deve ter 9 caracteres
-        if (celular.length() != 9) {
-            JOptionPane.showMessageDialog(this, "O número de celular deve ter exatamente 9 dígitos!", "Erro de Validação", JOptionPane.ERROR_MESSAGE);
-            return;
-        }
-
-        try {
-            double valor = Double.parseDouble(valorStr);
-
-            if (contaCliente == null) {
-                JOptionPane.showMessageDialog(this, "Conta não encontrada!", "Erro", JOptionPane.ERROR_MESSAGE);
-                return;
-            }
-
-            // 2. Validação do valor mínimo da transferência: deve ser >= 100 MZN
-            if (valor < 100.0) {
-                JOptionPane.showMessageDialog(this, "O valor mínimo para transferência para celular é 100 MZN!", "Erro de Validação", JOptionPane.ERROR_MESSAGE);
-                return;
-            }
-
-            if (sistemaController.transferirCarteiraMovel(contaCliente.getIdConta(), celular, valor)) {
-                JOptionPane.showMessageDialog(this,
-                        "Transferência para celular realizada!\n" +
-                                "Número: " + celular + "\n" +
-                                "Operadora: " + operadora + "\n" +
-                                "Valor: " + String.format("%.2f MZN", valor),
-                        "Transferência Efetuada",
-                        JOptionPane.INFORMATION_MESSAGE);
-            } else {
-                JOptionPane.showMessageDialog(this,
-                        "Erro na transferência! Verifique saldo e dados.",
-                        "Erro",
-                        JOptionPane.ERROR_MESSAGE);
-            }
-
-        } catch (NumberFormatException ex) {
-            JOptionPane.showMessageDialog(this, "Valor inválido!", "Erro", JOptionPane.ERROR_MESSAGE);
-        }
-    }
-
-    private void mostrarAlterarSenha() {
-        jPanel1.removeAll();
-
-        JPanel panelSenha = new JPanel(new BorderLayout());
-        panelSenha.setBackground(Color.WHITE);
-        panelSenha.setBorder(BorderFactory.createEmptyBorder(30, 50, 30, 50));
-
-        JLabel titulo = new JLabel("ALTERAR SENHA", JLabel.CENTER);
-        titulo.setFont(new Font("Segoe UI", Font.BOLD, 24));
-        titulo.setForeground(new Color(0, 0, 139));
-        titulo.setBorder(BorderFactory.createEmptyBorder(0, 0, 30, 0));
-        panelSenha.add(titulo, BorderLayout.NORTH);
-
-        JPanel formPanel = new JPanel(new GridBagLayout());
-        formPanel.setBackground(Color.WHITE);
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.fill = GridBagConstraints.HORIZONTAL;
-        gbc.insets = new Insets(8, 10, 8, 10);
-
-        // Campos de senha
-        gbc.gridx = 0; gbc.gridy = 0;
-        gbc.weightx = 0;
-        formPanel.add(criarLabel("Senha Atual:"), gbc);
-
-        gbc.gridx = 1; gbc.gridy = 0;
-        gbc.weightx = 1.0;
-        JPasswordField txtSenhaAtual = criarPasswordField();
-        formPanel.add(txtSenhaAtual, gbc);
-
-        gbc.gridx = 0; gbc.gridy = 1;
-        gbc.weightx = 0;
-        formPanel.add(criarLabel("Nova Senha:"), gbc);
-
-        gbc.gridx = 1; gbc.gridy = 1;
-        gbc.weightx = 1.0;
-        JPasswordField txtNovaSenha = criarPasswordField();
-        formPanel.add(txtNovaSenha, gbc);
-
-        gbc.gridx = 0; gbc.gridy = 2;
-        gbc.weightx = 0;
-        formPanel.add(criarLabel("Confirmar Senha:"), gbc);
-
-        gbc.gridx = 1; gbc.gridy = 2;
-        gbc.weightx = 1.0;
-        JPasswordField txtConfirmarSenha = criarPasswordField();
-        formPanel.add(txtConfirmarSenha, gbc);
-
-        // Botão Alterar
-        gbc.gridx = 0; gbc.gridy = 3;
-        gbc.gridwidth = 2;
-        gbc.insets = new Insets(20, 10, 10, 10);
-        gbc.anchor = GridBagConstraints.CENTER;
-        JButton btnAlterar = criarBotaoAcao("🔐 ALTERAR SENHA", new Color(0, 100, 0));
-        btnAlterar.addActionListener(e -> processarAlteracaoSenha(
-                new String(txtSenhaAtual.getPassword()),
-                new String(txtNovaSenha.getPassword()),
-                new String(txtConfirmarSenha.getPassword())
-        ));
-        formPanel.add(btnAlterar, gbc);
-
-        panelSenha.add(formPanel, BorderLayout.CENTER);
-        jPanel1.add(panelSenha);
-        jPanel1.revalidate();
-        jPanel1.repaint();
-    }
-
-    private void processarAlteracaoSenha(String senhaAtual, String novaSenha, String confirmarSenha) {
-        if (senhaAtual.isEmpty() || novaSenha.isEmpty() || confirmarSenha.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Preencha todos os campos!", "Erro", JOptionPane.ERROR_MESSAGE);
-            return;
-        }
-
-        if (!novaSenha.equals(confirmarSenha)) {
-            JOptionPane.showMessageDialog(this, "As senhas não coincidem!", "Erro", JOptionPane.ERROR_MESSAGE);
-            return;
-        }
-
-        if (novaSenha.length() < 4) {
-            JOptionPane.showMessageDialog(this, "A senha deve ter pelo menos 4 caracteres!", "Erro", JOptionPane.ERROR_MESSAGE);
-            return;
-        }
-
-        // Simular alteração de senha
-        // Em um sistema real, você verificaria a senha atual no banco de dados
-        JOptionPane.showMessageDialog(this,
-                "Senha alterada com sucesso!\n\n" +
-                        "⚠️ Lembre-se de guardar sua nova senha em local seguro.",
-                "Senha Alterada",
-                JOptionPane.INFORMATION_MESSAGE);
-    }
-
-    private void sair() {
-        int confirm = JOptionPane.showConfirmDialog(
-                this,
-                "Deseja realmente sair?",
-                "Confirmação de Saída",
-                JOptionPane.YES_NO_OPTION
+    private Border createCardBorder() {
+        return new CompoundBorder(
+                new LineBorder(BORDER_COLOR, 1),
+                BorderFactory.createEmptyBorder(15, 15, 15, 15)
         );
-
-        if (confirm == JOptionPane.YES_OPTION) {
-            JFrame frame = (JFrame) SwingUtilities.getWindowAncestor(this);
-            frame.dispose();
-        }
     }
 
-    // MÉTODOS AUXILIARES
-    private JLabel criarLabel(String texto) {
-        JLabel label = new JLabel(texto);
-        label.setFont(new Font("Segoe UI", Font.BOLD, 14));
-        label.setForeground(new Color(60, 60, 60));
-        return label;
+    private void setupLayout() {
+        setLayout(new BorderLayout());
+        add(sidebarPanel, BorderLayout.WEST);
+        add(contentPanel, BorderLayout.CENTER);
     }
 
-    private JTextField criarTextField() {
-        JTextField campo = new JTextField();
-        campo.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        campo.setPreferredSize(new Dimension(300, 35));
-        campo.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(180, 180, 180), 1),
-                BorderFactory.createEmptyBorder(5, 10, 5, 10)
-        ));
-        return campo;
+    private void switchContent(String section) {
+        contentCardLayout.show(contentPanel, section);
     }
 
-    private JPasswordField criarPasswordField() {
-        JPasswordField campo = new JPasswordField();
-        campo.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        campo.setPreferredSize(new Dimension(300, 35));
-        campo.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(180, 180, 180), 1),
-                BorderFactory.createEmptyBorder(5, 10, 5, 10)
-        ));
-        return campo;
+    private void showDashboard() {
+        contentCardLayout.show(contentPanel, "dashboard");
     }
 
-    // NOVO MÉTODO AUXILIAR PARA O BOTÃO DE DOWNLOAD
-    private JButton criarBotaoDownload(String texto) {
-        JButton botao = new JButton(texto);
-        botao.setFont(new Font("Segoe UI", Font.BOLD, 12));
-        botao.setBackground(new Color(0, 100, 0)); // Verde para download
-        botao.setForeground(Color.WHITE);
-        botao.setFocusPainted(false);
-        botao.setBorder(BorderFactory.createEmptyBorder(8, 15, 8, 15));
 
-        botao.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseEntered(java.awt.event.MouseEvent evt) {
-                botao.setBackground(new Color(34, 139, 34));
-            }
-            public void mouseExited(java.awt.event.MouseEvent evt) {
-                botao.setBackground(new Color(0, 100, 0));
-            }
-        });
-
-        return botao;
-    }
-
-    private JButton criarBotaoAcao(String texto, Color cor) {
-        JButton botao = new JButton(texto);
-        botao.setFont(new Font("Segoe UI", Font.BOLD, 16));
-        botao.setBackground(cor);
-        botao.setForeground(Color.WHITE);
-        botao.setPreferredSize(new Dimension(250, 40));
-        botao.setFocusPainted(false);
-        botao.setBorder(BorderFactory.createCompoundBorder(
-                cor.darker() != null ? BorderFactory.createLineBorder(cor.darker(), 2) : BorderFactory.createLineBorder(cor, 2),
-                BorderFactory.createEmptyBorder(8, 20, 8, 20)
-        ));
-
-
-        botao.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseEntered(java.awt.event.MouseEvent evt) {
-                botao.setBackground(cor.brighter());
-            }
-            public void mouseExited(java.awt.event.MouseEvent evt) {
-                botao.setBackground(cor);
-            }
-        });
-
-        return botao;
-    }
-
-    // ... (RESTANTE DO CÓDIGO GERADO PELO NETBEANS - MANTIDO ORIGINAL)
-    // Variables declaration - do not modify//GEN-BEGIN:variables
-    private javax.swing.JButton jButton1;
-    private javax.swing.JButton jButton2;
-    private javax.swing.JButton jButton3;
-    private javax.swing.JButton jButton4;
-    private javax.swing.JButton jButton5;
-    private javax.swing.JButton jButton6;
-    private javax.swing.JButton jButton7;
-    private javax.swing.JButton jButton8;
-    private javax.swing.JButton jButton9;
-    private javax.swing.JButton jButton10; // Variável para o novo botão de Histórico
-    private javax.swing.JLabel jLabel1;
-    private javax.swing.JLabel jLabel2;
-    private javax.swing.JPanel jPanel1;
-    private javax.swing.JPanel jPanel2;
-    private javax.swing.JPanel jPanel3;
-    // End of variables declaration//GEN-END:variables
-
-    /**
-     * This method is called from within the constructor to initialize the form.
-     * WARNING: Do NOT modify this code. The content of this method is always
-     * regenerated by the Form Editor.
-     */
-    @SuppressWarnings("unchecked")
-    // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
-    private void initComponents() {
-
-        jPanel2 = new javax.swing.JPanel();
-        jPanel1 = new javax.swing.JPanel();
-        jPanel3 = new javax.swing.JPanel();
-        jButton1 = new javax.swing.JButton();
-        jButton2 = new javax.swing.JButton();
-        jButton4 = new javax.swing.JButton();
-        jButton3 = new javax.swing.JButton();
-        jButton6 = new javax.swing.JButton();
-        jLabel2 = new javax.swing.JLabel();
-        jButton7 = new javax.swing.JButton();
-        jButton9 = new javax.swing.JButton();
-        jButton8 = new javax.swing.JButton();
-        jButton5 = new javax.swing.JButton();
-        jButton10 = new javax.swing.JButton(); // NOVO BOTÃO DECLARADO
-        jLabel1 = new javax.swing.JLabel();
-
-        jPanel2.setBackground(new java.awt.Color(255, 255, 255));
-
-        jPanel1.setBorder(javax.swing.BorderFactory.createEtchedBorder());
-
-        javax.swing.GroupLayout jPanel1Layout = new javax.swing.GroupLayout(jPanel1);
-        jPanel1.setLayout(jPanel1Layout);
-        jPanel1Layout.setHorizontalGroup(
-                jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                        .addGap(0, 635, Short.MAX_VALUE)
-        );
-        jPanel1Layout.setVerticalGroup(
-                jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                        .addGap(0, 0, Short.MAX_VALUE)
-        );
-
-        jPanel3.setBackground(new java.awt.Color(0, 0, 139));
-        jPanel3.setBorder(javax.swing.BorderFactory.createBevelBorder(javax.swing.border.BevelBorder.RAISED));
-
-        jButton1.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
-        jButton1.setText("Consultar Saldo");
-        jButton1.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jButton1ActionPerformed(evt);
-            }
-        });
-
-        jButton2.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
-        jButton2.setText("Depositar");
-        jButton2.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jButton2ActionPerformed(evt);
-            }
-        });
-
-        jButton4.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
-        jButton4.setText("Saque");
-
-        jButton3.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
-        jButton3.setText("Transferir ");
-        jButton3.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jButton3ActionPerformed(evt);
-            }
-        });
-
-        jButton6.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
-        jButton6.setText("Sair");
-
-        jLabel2.setFont(new java.awt.Font("Segoe UI", 1, 24)); // NOI18N
-        jLabel2.setForeground(new java.awt.Color(255, 255, 255));
-        jLabel2.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        jLabel2.setText("Menu");
-
-        jButton7.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
-        jButton7.setText("Transferir Para Celular");
-        jButton7.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jButton7ActionPerformed(evt);
-            }
-        });
-
-        jButton9.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
-        jButton9.setText("Ver Perfil");
-
-        jButton8.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
-        jButton8.setText("Pagamentos");
-
-        jButton5.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
-        jButton5.setText("Alterar Senha");
-
-        jButton10.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
-        jButton10.setText("Histórico/Relatório"); // NOVO BOTÃO INICIALIZADO
-
-        javax.swing.GroupLayout jPanel3Layout = new javax.swing.GroupLayout(jPanel3);
-        jPanel3.setLayout(jPanel3Layout);
-        jPanel3Layout.setHorizontalGroup(
-                jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                        .addGroup(jPanel3Layout.createSequentialGroup()
-                                .addContainerGap()
-                                .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                                        .addComponent(jButton2, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                                        .addComponent(jButton7, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, 227, Short.MAX_VALUE)
-                                        .addComponent(jLabel2, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                                        .addComponent(jButton3, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                                        .addComponent(jButton4, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                                        .addComponent(jButton1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                                        .addGroup(jPanel3Layout.createSequentialGroup()
-                                                .addComponent(jButton6, javax.swing.GroupLayout.PREFERRED_SIZE, 99, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                                                .addComponent(jButton9, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                                        .addComponent(jButton8, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                                        .addComponent(jButton5, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                                        .addComponent(jButton10, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                                .addContainerGap())
-        );
-        jPanel3Layout.setVerticalGroup(
-                jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                        .addGroup(jPanel3Layout.createSequentialGroup()
-                                .addContainerGap()
-                                .addComponent(jLabel2)
-                                .addGap(18, 18, 18)
-                                .addComponent(jButton1, javax.swing.GroupLayout.PREFERRED_SIZE, 40, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                .addGap(18, 18, 18)
-                                .addComponent(jButton2, javax.swing.GroupLayout.PREFERRED_SIZE, 40, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                .addGap(18, 18, 18)
-                                .addComponent(jButton4, javax.swing.GroupLayout.PREFERRED_SIZE, 40, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                .addGap(18, 18, 18)
-                                .addComponent(jButton3, javax.swing.GroupLayout.PREFERRED_SIZE, 40, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                .addGap(18, 18, 18)
-                                .addComponent(jButton7, javax.swing.GroupLayout.PREFERRED_SIZE, 40, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                                .addComponent(jButton8, javax.swing.GroupLayout.PREFERRED_SIZE, 40, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                .addGap(18, 18, 18)
-                                .addComponent(jButton5, javax.swing.GroupLayout.PREFERRED_SIZE, 40, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                .addGap(18, 18, 18)
-                                .addComponent(jButton10, javax.swing.GroupLayout.PREFERRED_SIZE, 40, javax.swing.GroupLayout.PREFERRED_SIZE) // NOVO BOTÃO ADICIONADO AO LAYOUT
-                                .addGap(18, 18, 18)
-                                .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                                        .addComponent(jButton9)
-                                        .addComponent(jButton6, javax.swing.GroupLayout.PREFERRED_SIZE, 31, javax.swing.GroupLayout.PREFERRED_SIZE))
-                                .addContainerGap(18, Short.MAX_VALUE))
-        );
-
-        jLabel1.setFont(new java.awt.Font("Segoe UI", 1, 24)); // NOI18N
-        jLabel1.setForeground(new java.awt.Color(0, 0, 139));
-        jLabel1.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        jLabel1.setText("Tela Do Cliente");
-
-        javax.swing.GroupLayout jPanel2Layout = new javax.swing.GroupLayout(jPanel2);
-        jPanel2.setLayout(jPanel2Layout);
-        jPanel2Layout.setHorizontalGroup(
-                jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                        .addGroup(jPanel2Layout.createSequentialGroup()
-                                .addContainerGap()
-                                .addComponent(jPanel3, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                                .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                                .addContainerGap())
-                        .addComponent(jLabel1, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-        );
-        jPanel2Layout.setVerticalGroup(
-                jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                        .addGroup(jPanel2Layout.createSequentialGroup()
-                                .addComponent(jLabel1, javax.swing.GroupLayout.PREFERRED_SIZE, 41, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                                .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                                        .addComponent(jPanel3, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                                        .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                                .addContainerGap(34, Short.MAX_VALUE))
-        );
-
-        javax.swing.GroupLayout layout = new javax.swing.GroupLayout(this);
-        this.setLayout(layout);
-        layout.setHorizontalGroup(
-                layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                        .addComponent(jPanel2, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-        );
-        layout.setVerticalGroup(
-                layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                        .addComponent(jPanel2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-        );
-    }// </editor-fold>//GEN-END:initComponents
-
-    private void jButton3ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton3ActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_jButton3ActionPerformed
-
-    private void jButton2ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton2ActionPerformed
-        // Este Listener é configurado em configurarListeners() agora para chamar mostrarMensagemEmBreve
-    }//GEN-LAST:event_jButton2ActionPerformed
-
-    private void jButton1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton1ActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_jButton1ActionPerformed
-
-    private void jButton7ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton7ActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_jButton7ActionPerformed
-
-    // Adicione este método na classe TelaCliente, antes do fechamento da classe
-    public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> {
-            JFrame frame = new JFrame("Banco Nexus - Cliente");
-            frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-            frame.setSize(1000, 600);
-            frame.setLocationRelativeTo(null);
-
-            TelaCliente cliente = new TelaCliente();
-            frame.add(cliente);
-
-            frame.setVisible(true);
-        });
-    }
 }
