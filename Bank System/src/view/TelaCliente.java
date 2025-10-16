@@ -99,7 +99,7 @@ public class TelaCliente extends javax.swing.JPanel {
                 }
             }
 
-            // 5. Se a conta não foi encontrada (mas o cliente sim), cria a conta
+            // 5. Se a conta não foi encontrada (but o cliente sim), cria a conta
             if (this.contaCliente == null) {
                 System.out.println("Conta do cliente de teste faltando. Criando conta...");
                 this.contaCliente = sistemaController.criarConta(this.clienteLogado.getIdCliente(), Conta.TipoConta.CORRENTE);
@@ -118,7 +118,8 @@ public class TelaCliente extends javax.swing.JPanel {
 
     private void configurarListeners() {
         jButton1.addActionListener(e -> mostrarConsultarSaldo());
-        // jButton2 (Depositar) - Ação não implementada no código, mas mantida a declaração
+        // NOVO: Adiciona a mensagem para o botão Depositar
+        jButton2.addActionListener(e -> mostrarMensagemEmBreve("Depositar"));
         jButton4.addActionListener(e -> mostrarSaque());
         jButton3.addActionListener(e -> mostrarTransferir());
         jButton7.addActionListener(e -> mostrarTransferirCelular());
@@ -128,6 +129,64 @@ public class TelaCliente extends javax.swing.JPanel {
         jButton10.addActionListener(e -> mostrarHistorico()); // NOVO BOTÃO
         jButton6.addActionListener(e -> sair());
     }
+
+    // =================================================================
+    // NOVO MÉTODO: mostrarMensagemEmBreve()
+    // =================================================================
+    private void mostrarMensagemEmBreve(String funcionalidade) {
+        jPanel1.removeAll();
+
+        JPanel panelMsg = new JPanel(new GridBagLayout());
+        panelMsg.setBackground(Color.WHITE);
+        panelMsg.setBorder(BorderFactory.createEmptyBorder(50, 50, 50, 50));
+
+        // Ícone de Aviso
+        JLabel lblIcon = new JLabel("🚧");
+        lblIcon.setFont(new Font("Segoe UI", Font.PLAIN, 60));
+
+        // Título da Funcionalidade
+        JLabel lblTitulo = new JLabel(funcionalidade.toUpperCase(), JLabel.CENTER);
+        lblTitulo.setFont(new Font("Segoe UI", Font.BOLD, 28));
+        lblTitulo.setForeground(new Color(255, 140, 0)); // Laranja
+        lblTitulo.setBorder(BorderFactory.createEmptyBorder(10, 0, 10, 0));
+
+        // Mensagem
+        JTextArea txtMensagem = new JTextArea(
+                "A funcionalidade de " + funcionalidade.toLowerCase() + " está em desenvolvimento. " +
+                        "Será implementada em breve para sua conveniência.\n\n" +
+                        "Agradecemos a sua paciência!"
+        );
+        txtMensagem.setFont(new Font("Segoe UI", Font.PLAIN, 16));
+        txtMensagem.setForeground(new Color(80, 80, 80));
+        txtMensagem.setBackground(Color.WHITE);
+        txtMensagem.setEditable(false);
+        txtMensagem.setLineWrap(true);
+        txtMensagem.setWrapStyleWord(true);
+        txtMensagem.setAlignmentX(JTextArea.CENTER_ALIGNMENT);
+
+
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        gbc.insets = new Insets(10, 10, 10, 10);
+
+        panelMsg.add(lblIcon, gbc);
+
+        gbc.gridy = 1;
+        panelMsg.add(lblTitulo, gbc);
+
+        gbc.gridy = 2;
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        panelMsg.add(txtMensagem, gbc);
+
+        jPanel1.add(panelMsg, BorderLayout.CENTER);
+        jPanel1.revalidate();
+        jPanel1.repaint();
+    }
+    // =================================================================
+    // FIM NOVO MÉTODO
+    // =================================================================
+
 
     // =================================================================
     // NOVO MÉTODO: mostrarHistorico() - Exibe a lista de transações e o botão de download
@@ -861,7 +920,7 @@ public class TelaCliente extends javax.swing.JPanel {
             return;
         }
 
-        // NOVO: 1. Validação do número de celular: deve ter 9 caracteres
+        // 1. Validação do número de celular: deve ter 9 caracteres
         if (celular.length() != 9) {
             JOptionPane.showMessageDialog(this, "O número de celular deve ter exatamente 9 dígitos!", "Erro de Validação", JOptionPane.ERROR_MESSAGE);
             return;
@@ -875,7 +934,7 @@ public class TelaCliente extends javax.swing.JPanel {
                 return;
             }
 
-            // NOVO: 2. Validação do valor mínimo da transferência: deve ser >= 100 MZN
+            // 2. Validação do valor mínimo da transferência: deve ser >= 100 MZN
             if (valor < 100.0) {
                 JOptionPane.showMessageDialog(this, "O valor mínimo para transferência para celular é 100 MZN!", "Erro de Validação", JOptionPane.ERROR_MESSAGE);
                 return;
@@ -1294,7 +1353,7 @@ public class TelaCliente extends javax.swing.JPanel {
     }//GEN-LAST:event_jButton3ActionPerformed
 
     private void jButton2ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton2ActionPerformed
-        // TODO add your handling code here:
+        // Este Listener é configurado em configurarListeners() agora para chamar mostrarMensagemEmBreve
     }//GEN-LAST:event_jButton2ActionPerformed
 
     private void jButton1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton1ActionPerformed
