@@ -1054,4 +1054,8 @@ public class SistemaController {
         System.out.println("Capital do banco: " + sistema.getCapitalBanco());
         System.out.println("Lucro de taxas: " + sistema.getLucroTaxas());
     }
+
+    public List<Transacoes> visualizarTransacoes(int idConta) {
+        return List.of();
+    }
 }

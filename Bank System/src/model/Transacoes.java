@@ -20,9 +20,13 @@ public class Transacoes {
     private boolean estornada;
     private Cliente cliente;
     private String referencia;  // novo
-    private String entidade; 
+    private String entidade;
 
-      //private LocalDate h;
+    public Object getDescricao() {
+        return null;
+    }
+
+    //private LocalDate h;
     
     
     //public  int getIdCliente() {
