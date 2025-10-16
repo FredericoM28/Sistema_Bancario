@@ -236,7 +236,7 @@ public class PainelFuncAtendimento extends JFrame {
         painel.add(topo, BorderLayout.NORTH);
 
         // Tabela com scroll
-        String[] colunas = {"ID", "Nome", "NUIT", "Telefone", "Email", "Status", "Nº Conta"};
+        String[] colunas = {"ID", "Nomee", "NUIT", "Telefone", "Email", "Status", "Nº Conta"};
         modeloTabela = new DefaultTableModel(colunas, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
